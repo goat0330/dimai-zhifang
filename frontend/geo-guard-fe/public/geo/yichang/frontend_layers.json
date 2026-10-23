@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "regionCode": "420500",
+  "regionName": "宜昌市",
+  "coordinateReferenceSystem": "EPSG:4326",
+  "coordinateOrder": "longitude, latitude",
+  "layers": [
+    {
+      "key": "yichang_city_boundary",
+      "name": "宜昌市边界",
+      "type": "polygon",
+      "file": "yichang_city_boundary_2022.geojson",
+      "featureCount": 1
+    },
+    {
+      "key": "yichang_county_units",
+      "name": "县级行政区",
+      "type": "polygon",
+      "file": "yichang_county_units_2023.geojson",
+      "featureCount": 13
+    },
+    {
+      "key": "yichang_township_units",
+      "name": "乡镇行政区",
+      "type": "polygon",
+      "file": "yichang_township_units_2022.geojson",
+      "featureCount": 113
+    },
+    {
+      "key": "yichang_roads",
+      "name": "宜昌道路网",
+      "type": "line",
+      "file": "yichang_roads_2025.geojson",
+      "featureCount": 21031
+    },
+    {
+      "key": "yichang_water_lines",
+      "name": "宜昌水系线",
+      "type": "line",
+      "file": "yichang_water_lines_2025.geojson",
+      "featureCount": 757,
+      "attribution": "© OpenStreetMap contributors",
+      "license": "ODbL"
+    },
+    {
+      "key": "yichang_water_polygons",
+      "name": "宜昌水域面",
+      "type": "polygon",
+      "file": "yichang_water_polygons_2025.geojson",
+      "featureCount": 1906,
+      "attribution": "© OpenStreetMap contributors",
+      "license": "ODbL"
+    }
+  ],
+  "terrain": {
+    "name": "宜昌三维地形",
+    "tileManifest": "terrain/layer.json",
+    "format": "quantized-mesh-1.0",
+    "scheme": "TMS",
+    "minZoom": 0,
+    "maxZoom": 13,
+    "tileCount": 8543,
+    "nativeResolution": "approximately 30 m",
+    "attribution": "Copernicus DEM GLO-30"
+  }
+}

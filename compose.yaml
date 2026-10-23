@@ -1,6 +1,24 @@
-name: dimai-yichang-demo
+name: dimai-yichang
 
 services:
+  p6-api:
+    build:
+      context: ./ai/p6-service
+    environment:
+      P6_RUNTIME_PROFILE: /data/P6_runtime_profile.json
+      P6_DYNAMIC_DB: /data/dynamic_runtime/p6_dynamic.sqlite3
+    volumes:
+      - ./data/p6:/data:ro
+    expose:
+      - "8017"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8017/api/v1/dynamic/status', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    init: true
+
   geo-rag-api:
     build:
       context: ./ai/geo_rag
@@ -27,16 +45,19 @@ services:
       context: ./ai/geo-agent-graph
     environment:
       RAG_BASE_URL: http://geo-rag-api:8010
-      YICHANG_GOLD_DB_PATH: /runtime/yichang_gold.sqlite3
-      YICHANG_GOLD_FIXTURE_DIR: /fixtures
+      P6_API_BASE_URL: http://p6-api:8017
+      YICHANG_SCENARIO_DB_PATH: /runtime/yichang_scenario.sqlite3
+      YICHANG_SCENARIO_FIXTURE_DIR: /fixtures
       CORS_ALLOWED_ORIGINS: http://127.0.0.1:5174,http://localhost:5174
     volumes:
-      - ./data/demo-gold:/fixtures:ro
-      - gold-data:/runtime
+      - ./data/yichang-scenario:/fixtures:ro
+      - scenario-data:/runtime
     ports:
       - "127.0.0.1:8011:8011"
     depends_on:
       geo-rag-api:
+        condition: service_healthy
+      p6-api:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8011/health', timeout=3)"]
@@ -46,6 +67,28 @@ services:
       start_period: 20s
     init: true
 
+  auth-api:
+    build:
+      context: ./backend/geo-guard-backend/local-auth-service
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: '8007'
+      GEO_AI_RAG_BASE_URL: http://geo-rag-api:8010
+      GEO_LOCAL_AUTH_USERNAME: admin
+      GEO_LOCAL_AUTH_PASSWORD: dzzh@2025
+      GEO_LOCAL_AUTH_DISPLAY_NAME: 地脉智控管理员
+    expose:
+      - "8007"
+    depends_on:
+      geo-rag-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    init: true
   yichang-web:
     build:
       context: ./frontend/geo-guard-fe
@@ -53,14 +96,19 @@ services:
       VITE_DEV_HTTPS: "false"
       VITE_YICHANG_GOLD_API_URL: http://geo-agent-graph:8011
       VITE_GEO_AGENT_SERVICE_URL: http://geo-agent-graph:8011
-      VITE_APP_SERVER_URL: http://geo-rag-api:8010
+      VITE_P6_API_URL: http://p6-api:8017
+      VITE_APP_SERVER_URL: http://auth-api:8007
     ports:
       - "127.0.0.1:5174:5174"
     depends_on:
+      auth-api:
+        condition: service_healthy
       geo-agent-graph:
         condition: service_healthy
+      p6-api:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5174/demo').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5174/warning/risk-eval').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -71,14 +119,17 @@ services:
     build:
       context: ./frontend/geo_rag
     environment:
-      VITE_API_URL: http://geo-rag-api:8010
+      VITE_API_URL: http://auth-api:8007
+      VITE_MINIO_URL: http://geo-rag-api:8010
     ports:
       - "127.0.0.1:5175:5175"
     depends_on:
+      auth-api:
+        condition: service_healthy
       geo-rag-api:
         condition: service_healthy
     init: true
 
 volumes:
   geo-rag-data:
-  gold-data:
+  scenario-data:

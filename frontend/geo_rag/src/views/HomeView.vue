@@ -116,10 +116,10 @@
         <div class="header-actions">
           <a
             class="github-link"
-            href="http://127.0.0.1:5174/demo"
-            aria-label="地脉智控演示"
+            href="http://127.0.0.1:5174/warning/risk-eval"
+            aria-label="地脉智控宜昌系统"
           >
-            <span>查看宜昌演示</span>
+            <span>进入宜昌系统</span>
           </a>
           <UserInfoComponent :show-button="true" />
         </div>
@@ -180,7 +180,7 @@ import { ArrowRight, BookText } from '@lucide/vue'
 const router = useRouter()
 const userStore = useUserStore()
 const infoStore = useInfoStore()
-const docsUrl = 'http://127.0.0.1:5174/demo'
+const docsUrl = 'http://127.0.0.1:5174/warning/risk-eval'
 
 // 加载状态
 const isLoading = ref(true)

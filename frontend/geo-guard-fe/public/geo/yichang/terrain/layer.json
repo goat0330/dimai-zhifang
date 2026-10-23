@@ -1,0 +1,139 @@
+{
+  "tilejson": "2.1.0",
+  "name": "宜昌市三维地形",
+  "description": "宜昌市及周边地区的本地地形瓦片。",
+  "version": "1.1.0",
+  "format": "quantized-mesh-1.0",
+  "attribution": "Copernicus DEM GLO-30",
+  "schema": "tms",
+  "extensions": [
+    "octvertexnormals"
+  ],
+  "tiles": [
+    "{z}/{x}/{y}.terrain?v={version}"
+  ],
+  "projection": "EPSG:4326",
+  "bounds": [
+    110.2509722222222,
+    29.9456944444444,
+    112.0804166666667,
+    31.5715277777778
+  ],
+  "available": [
+    [
+      {
+        "startX": 0,
+        "startY": 0,
+        "endX": 1,
+        "endY": 0
+      }
+    ],
+    [
+      {
+        "startX": 3,
+        "startY": 1,
+        "endX": 3,
+        "endY": 1
+      }
+    ],
+    [
+      {
+        "startX": 6,
+        "startY": 2,
+        "endX": 6,
+        "endY": 2
+      }
+    ],
+    [
+      {
+        "startX": 12,
+        "startY": 5,
+        "endX": 12,
+        "endY": 5
+      }
+    ],
+    [
+      {
+        "startX": 25,
+        "startY": 10,
+        "endX": 25,
+        "endY": 10
+      }
+    ],
+    [
+      {
+        "startX": 51,
+        "startY": 21,
+        "endX": 51,
+        "endY": 21
+      }
+    ],
+    [
+      {
+        "startX": 103,
+        "startY": 42,
+        "endX": 103,
+        "endY": 43
+      }
+    ],
+    [
+      {
+        "startX": 206,
+        "startY": 85,
+        "endX": 207,
+        "endY": 86
+      }
+    ],
+    [
+      {
+        "startX": 412,
+        "startY": 170,
+        "endX": 415,
+        "endY": 172
+      }
+    ],
+    [
+      {
+        "startX": 825,
+        "startY": 341,
+        "endX": 830,
+        "endY": 345
+      }
+    ],
+    [
+      {
+        "startX": 1651,
+        "startY": 682,
+        "endX": 1661,
+        "endY": 691
+      }
+    ],
+    [
+      {
+        "startX": 3302,
+        "startY": 1364,
+        "endX": 3323,
+        "endY": 1383
+      }
+    ],
+    [
+      {
+        "startX": 6604,
+        "startY": 2729,
+        "endX": 6646,
+        "endY": 2766
+      }
+    ],
+    [
+      {
+        "startX": 13209,
+        "startY": 5458,
+        "endX": 13292,
+        "endY": 5532
+      }
+    ]
+  ],
+  "scheme": "tms",
+  "minzoom": 0,
+  "maxzoom": 13
+}

@@ -32,7 +32,7 @@ _EVENT_DIRS = {
 
 
 def _fixture_root() -> Path:
-    return Path(settings.yichang_gold_fixture_dir).expanduser().resolve()
+    return Path(settings.yichang_scenario_fixture_dir).expanduser().resolve()
 
 
 def _read_json(folder: Path, relative_path: str) -> Any:
@@ -148,7 +148,7 @@ def _persist_report_docx(report: dict[str, Any]) -> dict[str, Any]:
     report_text = report.get("report_text")
     if not re.fullmatch(r"[A-Za-z0-9._-]+", report_id) or not isinstance(report_text, str) or not report_text.strip():
         raise ValueError("A persisted report ID and non-empty Markdown body are required for DOCX export")
-    database = Path(settings.yichang_gold_db_path).expanduser()
+    database = Path(settings.yichang_scenario_db_path).expanduser()
     if not database.is_absolute():
         database = Path.cwd() / database
     report_dir = database.resolve().parent / "reports"

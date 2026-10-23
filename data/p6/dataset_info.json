@@ -1,0 +1,18 @@
+{
+  "project": "地脉智控",
+  "region": "宜昌市",
+  "region_code": "420500",
+  "slope_unit_count": 1590,
+  "county_count": 13,
+  "static_risk_field": "r_grade",
+  "dynamic_risk_fields": ["r_dynamic_grade", "r_forecast_grade"],
+  "unit_id_pattern": "YCSV2_######",
+  "map_data": {
+    "city_boundary": "/geo/yichang/yichang_city_boundary_2022.geojson",
+    "county_boundaries": "/geo/yichang/yichang_county_units_2023.geojson",
+    "roads": "/geo/yichang/yichang_roads_2025.geojson",
+    "water_lines": "/geo/yichang/yichang_water_lines_2025.geojson",
+    "water_polygons": "/geo/yichang/yichang_water_polygons_2025.geojson",
+    "risk_tiles": "/dynamic_runtime/map_tiles/P6_动态风险图层_最新.mbtiles"
+  }
+}

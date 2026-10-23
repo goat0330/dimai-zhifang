@@ -273,7 +273,7 @@ async def yichang_dual_gold_report_docx(run_id: str, report_id: str):
     from .yichang_gold_runner import _persist_report_docx
     report = _persist_report_docx(report)
     update_gold_record(report_id, report)
-    database = settings.yichang_gold_db_path
+    database = settings.yichang_scenario_db_path
     report_dir = Path(database).expanduser()
     if not report_dir.is_absolute():
         report_dir = Path.cwd() / report_dir

@@ -292,9 +292,9 @@
     <!-- 页面底部：版权信息等 -->
     <footer class="page-footer">
       <div class="footer-links">
-        <a href="http://127.0.0.1:5174/demo">返回地脉智控</a>
+        <a href="http://127.0.0.1:5174/warning/risk-eval">返回地脉智控</a>
         <span class="divider">|</span>
-        <a href="http://127.0.0.1:5174/demo">查看演示首页</a>
+        <a href="http://127.0.0.1:5174/warning/risk-eval">打开宜昌系统</a>
       </div>
       <div class="copyright">
         &copy; {{ new Date().getFullYear() }} {{ brandName }}. All Rights Reserved.

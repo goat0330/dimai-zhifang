@@ -241,7 +241,7 @@ def _gold_store_records_for_event(event: Mapping[str, Any]) -> list[dict[str, An
     if not scenario_id or not event_id:
         return []
 
-    database_path = Path(settings.yichang_gold_db_path)
+    database_path = Path(settings.yichang_scenario_db_path)
     if not database_path.is_absolute():
         database_path = Path(__file__).resolve().parents[2] / database_path
     if not database_path.is_file():

@@ -13,7 +13,7 @@ from .config import settings
 
 
 def _db_path() -> Path:
-    path = Path(settings.yichang_gold_db_path)
+    path = Path(settings.yichang_scenario_db_path)
     if not path.is_absolute():
         path = Path(__file__).resolve().parents[1] / path
     path.parent.mkdir(parents=True, exist_ok=True)

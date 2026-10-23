@@ -2,20 +2,21 @@
   <main class="gold-page" :class="{ 'is-embedded': embedded }">
     <header v-if="!embedded" class="page-head">
       <div>
-        <p class="eyebrow">地脉智控 · 宜昌市地质灾害防治</p>
-        <h1>监测预警与恢复处置</h1>
+        <el-button text @click="router.push({ name: 'CockpitHome' })">← 返回驾驶舱</el-button>
+        <p class="eyebrow">宜昌市地质灾害防治平台</p>
+        <h1>双事件业务流程</h1>
       </div>
       <div class="head-tags">
-        <el-tag effect="plain" type="primary">宜昌单场演示</el-tag>
-        <el-tag effect="plain" type="warning">本地演示数据</el-tag>
+        <el-tag effect="plain" type="primary">Gold 流程演示</el-tag>
+        <el-tag effect="plain" type="warning">业务记录为模拟数据</el-tag>
       </div>
     </header>
 
     <header v-if="embedded" class="embedded-toolbar">
       <div>
-        <p class="eyebrow">地脉智控 · 宜昌 · {{ scenarioLabel }}</p>
+        <p class="eyebrow">首页地图点位 · {{ scenarioLabel }}</p>
         <strong>{{ eventTitle }}</strong>
-        <small>本地演示记录；智能分析服务仅在点击对应按钮后调用。</small>
+        <small>模拟业务记录；Dify 仅在你点击对应智能体按钮后调用。</small>
       </div>
       <div class="scenario-actions">
         <el-button v-if="savedRunId" :loading="pageLoading" @click="loadSaved">读取最近流程</el-button>
@@ -26,23 +27,26 @@
 
     <section v-if="!embedded" class="scenario-card">
       <div class="scenario-list">
-        <div class="scenario-option selected">
-          <span>宜昌 · 秭归</span><strong>监测告警与恢复跟踪</strong><small>监测记录、风险研判、任务处置与恢复阶段</small>
-        </div>
+        <button :class="{ selected: scenario === 'GOLD-01' }" @click="selectScenario('GOLD-01')">
+          <span>GOLD-01 · 五峰</span><strong>现场巡查报灾</strong><small>上报、调查、研判与处置</small>
+        </button>
+        <button :class="{ selected: scenario === 'GOLD-02' }" @click="selectScenario('GOLD-02')">
+          <span>GOLD-02 / GOLD-03 · 秭归</span><strong>监测告警与恢复跟踪</strong><small>恢复阶段追加到同一事件和任务链</small>
+        </button>
       </div>
       <div class="scenario-actions">
         <el-button v-if="savedRunId && !run" @click="loadSaved">读取已保存流程</el-button>
         <el-button type="primary" :loading="starting" @click="startRun">{{ run ? '新建一次流程' : '启动演示流程' }}</el-button>
       </div>
-      <p>演示覆盖监测告警、风险研判、处置任务和恢复跟踪，业务记录保存在本机。</p>
+      <p>页面只读取或写入 Gold 业务接口记录；Dify 调用仅由用户点击对应按钮触发。</p>
     </section>
 
     <section v-if="pageLoading" class="empty-state"><el-icon class="is-loading"><Loading /></el-icon> 正在读取已保存记录…</section>
     <section v-else-if="!run" class="empty-state">
-      <h2>{{ loadError ? '流程记录暂时无法读取' : embedded ? '启动此地图点位的业务流程' : '启动宜昌演示流程' }}</h2>
-      <p>{{ loadError || '启动后会在本机保存演示流程；刷新页面后可继续查看。' }}</p>
+      <h2>{{ loadError ? '流程记录暂时无法读取' : embedded ? '启动此地图点位的业务流程' : '选择场景，启动演示流程' }}</h2>
+      <p>{{ loadError || '启动后会创建持久化 Gold 流程；刷新后可从当前链接或本机最近记录继续。' }}</p>
       <el-button v-if="loadError" @click="loadSaved">重试读取</el-button>
-          <el-button v-else type="primary" :loading="starting" @click="startRun">启动宜昌演示</el-button>
+      <el-button v-else type="primary" :loading="starting" @click="startRun">启动 {{ scenario }} 流程</el-button>
     </section>
 
     <section v-else class="run-area">
@@ -55,7 +59,7 @@
           </div>
           <div class="event-tags">
             <el-tag :type="eventCompleted ? 'success' : 'warning'">{{ eventCompleted ? '已完成' : eventStatus }}</el-tag>
-            <el-tag effect="plain">{{ event.is_simulated === false ? '宜昌风险数据' : '宜昌演示事件' }}</el-tag>
+            <el-tag effect="plain">{{ event.is_simulated === false ? 'P6候选数据' : 'Gold演示事件' }}</el-tag>
           </div>
         </div>
         <div class="event-facts">
@@ -108,6 +112,11 @@
                     <span>图</span><div><strong>{{ photoName(photo) }}</strong><small>{{ photo.evidence_scope || photo.media_kind || '图片引用' }}</small></div>
                   </div>
                   <p v-if="visionPending" class="notice">图片上传能力未启用，照片仅作为场景资料展示，尚无视觉模型识别结论。</p>
+                  <div v-if="scenario === 'GOLD-01'" class="action-row">
+                    <el-button type="primary" plain :loading="pending === 'a2'" :disabled="Boolean(executionFor('A2'))" @click="doA2">
+                      {{ executionFor('A2') ? 'A2 已执行' : '调用 Dify 执行 A2 图像研判' }}
+                    </el-button><small>仅在点击后调用，不把图片引用显示为识别结果。</small>
+                  </div>
                 </article>
               </section>
             </el-tab-pane>
@@ -115,17 +124,17 @@
             <el-tab-pane label="监测与风险" name="monitor">
               <section class="section">
                 <div class="section-head"><div><h3>监测记录与 P6 风险</h3><p>等级来自关联斜坡单元记录；静态易发性与动态风险分别展示。</p></div><el-tag type="primary" effect="plain">{{ p6.snapshot_id || '无P6时片' }}</el-tag></div>
-                <div class="stage-switch">
+                <div v-if="scenario === 'GOLD-02'" class="stage-switch">
                   <span>同一事件的监测阶段</span>
                   <el-radio-group v-model="activeStage" size="small">
-                    <el-radio-button label="GOLD-02">监测阶段</el-radio-button>
-                    <el-radio-button label="GOLD-03">恢复阶段</el-radio-button>
+                    <el-radio-button label="GOLD-02">GOLD-02 监测阶段</el-radio-button>
+                    <el-radio-button label="GOLD-03">GOLD-03 恢复阶段</el-radio-button>
                   </el-radio-group>
                   <small>共用事件编号与同一组任务</small>
                 </div>
                 <div class="two-col">
                   <article class="info-card">
-                    <h4>{{ activeStage === 'GOLD-02' ? '监测阶段记录' : '恢复阶段记录' }}</h4>
+                    <h4>{{ scenario === 'GOLD-02' ? activeStage + ' 监测记录' : '现场与监测来源' }}</h4>
                     <dl>
                       <div><dt>设备</dt><dd>{{ device.device_name || device.device_id || event.device_id || '—' }}</dd></div>
                       <div><dt>监测点</dt><dd>{{ device.monitor_point_id || event.monitor_point_id || discovery.monitor_point_id || '—' }}</dd></div>
@@ -144,11 +153,11 @@
                     <details v-if="p6.V"><summary>查看资产易损性系数</summary><div class="asset-values"><span v-for="item in vMetrics" :key="item.key">{{ item.label }} {{ item.value }}</span></div></details>
                   </article>
                 </div>
-                <div class="action-row">
-                  <el-button v-if="activeStage === 'GOLD-02' && !hasRecovery" :loading="pending === 'recovery'" @click="doRecovery">追加恢复阶段</el-button>
+                <div v-if="scenario === 'GOLD-02'" class="action-row">
+                  <el-button v-if="activeStage === 'GOLD-02' && !hasRecovery" :loading="pending === 'recovery'" @click="doRecovery">追加 GOLD-03 恢复阶段</el-button>
                   <el-button type="primary" :loading="pending === 'a3'" :disabled="Boolean(executionFor('A3', activeStage)) || (activeStage === 'GOLD-03' && !hasRecovery)" @click="doA3">
-                    {{ executionFor('A3', activeStage) ? '当前阶段分析已执行' : '调用智能分析进行' + (activeStage === 'GOLD-02' ? '监测' : '恢复') + '研判' }}
-                  </el-button><small>点击后执行分析，结果保存到当前事件。</small>
+                    {{ executionFor('A3', activeStage) ? activeStage + ' A3 已执行' : '调用 Dify 执行 ' + activeStage + ' A3 监测研判' }}
+                  </el-button><small>A3仅在用户点击时调用，执行结果保存到当前事件。</small>
                 </div>
               </section>
             </el-tab-pane>
@@ -161,17 +170,17 @@
                   <p>{{ decisionText }}</p>
                   <details v-if="decision.disposal_plan || decision.task_proposal"><summary>查看 A4 方案记录</summary><pre>{{ pretty({ disposal_plan: decision.disposal_plan, task_proposal: decision.task_proposal }) }}</pre></details>
                   <div class="action-row">
-                    <el-button type="primary" plain :loading="pending === 'a4'" :disabled="Boolean(latestA4?.status === 'completed')" @click="doA4">调用智能分析生成处置建议</el-button>
+                    <el-button type="primary" plain :loading="pending === 'a4'" :disabled="Boolean(latestA4?.status === 'completed')" @click="doA4">调用 Dify 执行 A4 决策研判</el-button>
                     <el-button :loading="pending === 'plan'" :disabled="!latestA4 || Boolean(run.plan_review_id)" @click="doPlanReview">
-                      {{ planApproved ? '方案审核已完成' : '记录方案审核并生成任务' }}
+                      {{ planApproved ? '方案审核已完成' : '回放 Gold 方案审核并生成任务' }}
                     </el-button>
                   </div>
-                  <p class="notice">处置任务将在方案审核后生成。</p>
+                  <p class="notice">A4文本方案需经过方案审核后才会生成任务；Gold审核为演示回放。</p>
                 </article>
                 <div class="task-head">
-                  <div><h4>处置任务与执行反馈</h4><p>{{ tasks.length }} 条任务 · 当前反馈阶段 {{ activeStage === 'GOLD-02' ? '监测阶段' : '恢复阶段' }}</p></div>
+                  <div><h4>处置任务与执行反馈</h4><p>{{ tasks.length }} 条任务 · 当前反馈阶段 {{ scenario === 'GOLD-01' ? 'GOLD-01' : activeStage }}</p></div>
                   <el-button :disabled="!planApproved || (activeStage === 'GOLD-03' && !hasRecovery)" :loading="pending === 'feedback'" @click="doFeedback">
-                    记录当前阶段执行反馈
+                    回放 {{ scenario === 'GOLD-01' ? '现场' : activeStage }} Gold 反馈
                   </el-button>
                 </div>
                 <div v-if="tasks.length" class="task-list">
@@ -189,7 +198,7 @@
                       <small>{{ engineLabel(taskReview(task).execution_engine) }} · {{ statusLabel(taskReview(task).status) }}</small>
                     </div>
                     <div v-if="!taskFeedbacks(task).length && !taskReview(task)" class="task-empty">暂无已保存的反馈与复核记录</div>
-                    <div class="task-foot"><code>{{ task.task_id }}</code><el-button v-if="!taskReview(task)" size="small" :disabled="!planApproved || !taskFeedbacks(task).length || !hasRecovery" :loading="pending === ('task:' + task.fixture_task_key)" @click="doTaskReview(task)">记录任务复核</el-button><small v-else>复核已记录</small></div>
+                    <div class="task-foot"><code>{{ task.task_id }}</code><el-button v-if="!taskReview(task)" size="small" :disabled="!planApproved || !taskFeedbacks(task).length || (scenario === 'GOLD-02' && !hasRecovery)" :loading="pending === ('task:' + task.fixture_task_key)" @click="doTaskReview(task)">回放 Gold 任务复核</el-button><small v-else>复核已记录</small></div>
                   </article>
                 </div>
                 <div v-else class="inline-empty">方案审核通过后，处置任务将从接口记录中显示。</div>
@@ -200,9 +209,9 @@
               <section class="section">
                 <div class="section-head"><div><h3>调查、处置与复盘报告</h3><p>报告正文、审核状态与 DOCX 均读取当前 run 的记录。</p></div><el-tag effect="plain">{{ reports.length }} 份报告</el-tag></div>
                 <div class="action-row report-actions">
-                  <el-button type="primary" plain :loading="pending === 'a5-investigation'" :disabled="hasInvestigationReport" @click="doA5Investigation">生成调查报告</el-button>
+                  <el-button type="primary" plain :loading="pending === 'a5-investigation'" :disabled="hasInvestigationReport" @click="doA5Investigation">调用 Dify 执行 A5 调查报告</el-button>
                   <el-button :loading="pending === 'retrospective'" :disabled="!canGenerateReport || Boolean(finalReport)" @click="doRetrospective(false)">生成复盘报告（本地事实模板）</el-button>
-                  <el-button v-if="!finalReport" type="primary" :loading="pending === 'retrospective-dify'" :disabled="!canGenerateReport" @click="doRetrospective(true)">调用智能分析生成复盘报告</el-button>
+                  <el-button v-if="!finalReport" type="primary" :loading="pending === 'retrospective-dify'" :disabled="!canGenerateReport" @click="doRetrospective(true)">调用 Dify 生成复盘报告</el-button>
                   <el-button v-if="finalReport && !finalReportApproved" type="success" :loading="pending === 'final-review'" @click="doFinalReview">回放最终报告审核</el-button>
                   <el-tag v-if="eventCompleted" type="success">最终报告审核通过，事件已完成</el-tag>
                 </div>
@@ -265,6 +274,7 @@ import {
 defineOptions({ name: 'YichangGoldDemo' })
 const props = defineProps({
   embedded: { type: Boolean, default: false },
+  initialScenario: { type: String, default: 'GOLD-01' },
   initialRunId: { type: String, default: '' },
   autoStartOnOpen: { type: Boolean, default: false },
 })
@@ -283,8 +293,8 @@ const LABELS = {
 const router = useRouter()
 const route = useRoute()
 const md = new MarkdownIt({ html: false, breaks: true, linkify: true })
-const scenario = ref('GOLD-02')
-const activeStage = ref('GOLD-02')
+const scenario = ref('GOLD-01')
+const activeStage = ref('GOLD-01')
 const activePane = ref('field')
 const snapshot = ref(null)
 const pageLoading = ref(false)
@@ -363,9 +373,9 @@ const decisionText = computed(() => {
   if (typeof value === 'string') return value
   return value?.summary || decision.value.disposal_plan?.summary || (decision.value.decision_status ? statusLabel(decision.value.decision_status) : 'A4 决策记录尚未生成。')
 })
-const eventTitle = computed(() => event.value.event_name || event.value.title || event.value.risk_info?.hazard_point_name || device.value.device_name || '秭归监测告警事件')
+const eventTitle = computed(() => event.value.event_name || event.value.title || event.value.risk_info?.hazard_point_name || device.value.device_name || (scenario.value === 'GOLD-01' ? '五峰现场巡查报灾事件' : '秭归监测告警事件'))
 const eventSummary = computed(() => event.value.summary || event.value.monitoring?.trigger_reason || event.value.risk_info?.description || event.value.description || '事件描述以已保存的现场与监测记录为准。')
-const scenarioLabel = computed(() => '秭归监测预警与恢复处置')
+const scenarioLabel = computed(() => scenario.value === 'GOLD-01' ? 'GOLD-01 · 五峰现场巡查' : 'GOLD-02 / GOLD-03 · 秭归监测与恢复')
 const recordCount = computed(() => Object.values(groups.value).reduce((n, value) => n + (Array.isArray(value) ? value.length : 0), 0))
 const flow = computed(() => [
   { key: 'field', label: '现场上报', done: Boolean(field.value.record_id || discovery.value.discovery_id) },
@@ -387,8 +397,8 @@ function statusTone(value) {
   if (['awaiting_final_report_review', 'awaiting_task_review', 'submitted_pending_task_review', 'pending_visual_model', 'deferred_to_phase2'].includes(value)) return 'warning'
   return 'info'
 }
-function engineLabel(value) { return value === 'dify' ? '外部智能服务' : value === 'local' ? '本地演示' : value || '未记录' }
-function sourceLabel(kind, source) { return kind === 'SIMULATED' || String(source || '').includes('local_gold_fixture') ? '演示场景记录' : source || kind || '—' }
+function engineLabel(value) { return value === 'dify' ? 'Dify' : value === 'local' ? '本地 Gold' : value || '未记录' }
+function sourceLabel(kind, source) { return kind === 'SIMULATED' || String(source || '').includes('local_gold_fixture') ? 'Gold 场景记录' : source || kind || '—' }
 function reportTypeLabel(value) { return ({ investigation: '调查报告', disposal_opinion: '处置意见书', retrospective: '处置复盘报告', final: '最终报告' })[value] || value || '业务报告' }
 function outputLabel(value) { return typeof value === 'string' ? statusLabel(value) : value && typeof value === 'object' ? Object.entries(value).map(([k, v]) => k + '：' + statusLabel(v)).join('；') : '' }
 function formatTime(value) {
@@ -402,14 +412,17 @@ function pretty(value) { try { return JSON.stringify(value, null, 2) } catch (_)
 function photoName(photo) { const path = typeof photo === 'string' ? photo : photo?.path || photo?.filename; return path ? String(path).split(/[\\/]/).at(-1) : '现场图片引用' }
 function executionFor(agent, stage) { return executions.value.filter((item) => item.agent_id === agent && (!stage || item.stage_id === stage)).at(-1) || null }
 function taskReview(task) { return reviews.value.find((item) => item.task_id === task.task_id || item.task_fixture_key === task.fixture_task_key) || null }
-function feedbackBelongsToStage(item, stage) { return [item.stage_id, item.feedback_fixture_key, item.fixture_feedback_key, item.data_source].filter(Boolean).join(' ').includes(stage) }
+function feedbackBelongsToStage(item, stage) {
+  if (scenario.value === 'GOLD-01') return true
+  return [item.stage_id, item.feedback_fixture_key, item.fixture_feedback_key, item.data_source].filter(Boolean).join(' ').includes(stage)
+}
 function taskFeedbacks(task) { return feedbacks.value.filter((item) => item.task_id === task.task_id && feedbackBelongsToStage(item, activeStage.value)) }
 
 function routeState(runId, scenarioId, stage) {
   if (props.embedded) return
   const query = { scenario: scenarioId }
   if (runId) query.run_id = runId
-  query.stage = stage
+  if (scenarioId === 'GOLD-02') query.stage = stage
   router.replace({ name: 'YichangGoldDemo', query })
 }
 async function readRun(runId) {
@@ -418,8 +431,7 @@ async function readRun(runId) {
   loadError.value = ''
   try {
     snapshot.value = await readGoldRun(runId)
-    if (snapshot.value.run?.scenario_id !== 'GOLD-02') throw new Error('此演示包仅包含宜昌秭归监测预警与恢复处置场景')
-    scenario.value = 'GOLD-02'
+    scenario.value = snapshot.value.run?.scenario_id === 'GOLD-02' ? 'GOLD-02' : 'GOLD-01'
     activeStage.value = scenario.value === 'GOLD-02' && !props.embedded && ['GOLD-02', 'GOLD-03'].includes(String(route.query.stage)) ? String(route.query.stage) : scenario.value
     localStorage.setItem(STORAGE + 'run:' + scenario.value, runId)
     localStorage.setItem(STORAGE + 'last-scenario', scenario.value)
@@ -427,6 +439,17 @@ async function readRun(runId) {
     routeState(runId, scenario.value, activeStage.value)
   } catch (error) { loadError.value = error.message || '读取流程失败' }
   finally { pageLoading.value = false }
+}
+async function selectScenario(value) {
+  scenario.value = value
+  activeStage.value = value === 'GOLD-01' ? 'GOLD-01' : 'GOLD-02'
+  activePane.value = 'field'
+  snapshot.value = null
+  qaResult.value = null
+  loadError.value = ''
+  savedRunId.value = localStorage.getItem(STORAGE + 'run:' + value) || ''
+  if (savedRunId.value) await readRun(savedRunId.value)
+  else routeState('', value, activeStage.value)
 }
 async function loadSaved() {
   const id = savedRunId.value || localStorage.getItem(STORAGE + 'run:' + scenario.value)
@@ -466,14 +489,14 @@ async function mutate(key, action, message) {
 function doA2() { return mutate('a2', () => executeGoldA2(run.value.run_id), 'A2执行结果已保存') }
 function doA3() { return mutate('a3', () => executeGoldA3(run.value.run_id, activeStage.value), activeStage.value + ' A3结果已保存') }
 function doA4() { return mutate('a4', () => executeGoldA4(run.value.run_id), 'A4执行结果已保存') }
-function doPlanReview() { return mutate('plan', () => reviewGoldPlan(run.value.run_id), '处置方案审核记录已保存') }
-function doFeedback() { return mutate('feedback', () => replayGoldFeedback(run.value.run_id, activeStage.value), '执行反馈已保存') }
-function doRecovery() { return mutate('recovery', () => executeGoldRecovery(run.value.run_id), '恢复阶段已追加到当前事件') }
+function doPlanReview() { return mutate('plan', () => reviewGoldPlan(run.value.run_id), 'Gold方案审核记录已保存') }
+function doFeedback() { const stage = scenario.value === 'GOLD-01' ? 'GOLD-01' : activeStage.value; return mutate('feedback', () => replayGoldFeedback(run.value.run_id, stage), 'Gold反馈记录已保存') }
+function doRecovery() { return mutate('recovery', () => executeGoldRecovery(run.value.run_id), 'GOLD-03已追加到同一事件') }
 function doTaskReview(task) { return mutate('task:' + task.fixture_task_key, () => reviewGoldTask(run.value.run_id, task.fixture_task_key), '任务复核结果已保存') }
 function doA5Investigation() { return mutate('a5-investigation', () => executeGoldA5Investigation(run.value.run_id), 'A5调查报告结果已保存') }
 function doRetrospective(useDify) {
   const key = useDify ? 'retrospective-dify' : 'retrospective'
-  return mutate(key, () => createGoldRetrospective(run.value.run_id, useDify), useDify ? '智能分析报告执行记录已保存' : '本地业务报告已保存')
+  return mutate(key, () => createGoldRetrospective(run.value.run_id, useDify), useDify ? 'Dify报告执行记录已保存' : '本地事实模板报告已保存')
 }
 function doFinalReview() { return mutate('final-review', () => reviewGoldFinalReport(run.value.run_id), '最终报告审核记录已保存') }
 async function doQa() {
@@ -505,19 +528,21 @@ async function downloadReport(report) {
 }
 onMounted(async () => {
   if (props.embedded) {
-    scenario.value = 'GOLD-02'
-    activeStage.value = 'GOLD-02'
+    scenario.value = props.initialScenario === 'GOLD-02' ? 'GOLD-02' : 'GOLD-01'
+    activeStage.value = scenario.value === 'GOLD-02' ? 'GOLD-02' : 'GOLD-01'
     const requestedRunId = props.initialRunId || localStorage.getItem(STORAGE + 'run:' + scenario.value) || ''
     if (props.autoStartOnOpen) await startRun()
     else if (requestedRunId) await readRun(requestedRunId)
     return
   }
-  scenario.value = 'GOLD-02'
+  const queryScenario = ['GOLD-01', 'GOLD-02'].includes(String(route.query.scenario)) ? String(route.query.scenario) : ''
+  const storedScenario = localStorage.getItem(STORAGE + 'last-scenario')
+  scenario.value = queryScenario || (['GOLD-01', 'GOLD-02'].includes(storedScenario) ? storedScenario : 'GOLD-01')
   savedRunId.value = localStorage.getItem(STORAGE + 'run:' + scenario.value) || ''
   const queryRunId = String(route.query.run_id || '')
   if (queryRunId) await readRun(queryRunId)
   else if (savedRunId.value) await readRun(savedRunId.value)
-  else routeState('', scenario.value, 'GOLD-02')
+  else routeState('', scenario.value, scenario.value === 'GOLD-01' ? 'GOLD-01' : 'GOLD-02')
 })
 onBeforeUnmount(() => { if (objectUrl) URL.revokeObjectURL(objectUrl) })
 </script>
@@ -538,11 +563,11 @@ onBeforeUnmount(() => { if (objectUrl) URL.revokeObjectURL(objectUrl) })
 .scenario-card { padding: 13px 15px 9px; margin-bottom: 11px; }
 .scenario-card > p { margin: 8px 1px 0; color: #9096a2; font-size: 11px; }
 .scenario-list { gap: 9px; flex: 1; }
-.scenario-option { min-width: 220px; flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 13px; text-align: left; background: #f7faff; border: 1px solid #e3eaf2; border-radius: 8px; }
-.scenario-option.selected { border-color: #007bff; background: #eff6ff; }
-.scenario-option span { color: #007bff; font-size: 11px; font-weight: 700; }
-.scenario-option strong { color: #222527; font-size: 14px; }
-.scenario-option small, .scenario-actions .el-button + .el-button { color: #617185; font-size: 11px; }
+.scenario-list button { min-width: 220px; flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 13px; text-align: left; background: #f7faff; border: 1px solid #e3eaf2; border-radius: 8px; cursor: pointer; }
+.scenario-list button.selected, .scenario-list button:hover { border-color: #007bff; background: #eff6ff; }
+.scenario-list button span { color: #007bff; font-size: 11px; font-weight: 700; }
+.scenario-list button strong { color: #222527; font-size: 14px; }
+.scenario-list button small, .scenario-actions .el-button + .el-button { color: #617185; font-size: 11px; }
 .scenario-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px 14px; }
 .scenario-list { grid-column: 1 / 2; grid-row: 1; }
 .scenario-actions { grid-column: 2; grid-row: 1; justify-content: flex-end; gap: 8px; }
@@ -605,5 +630,5 @@ details { margin-top: 9px; }summary { color: #007bff; font-size: 11px; cursor: p
 .trace-panel .section-head h3 { margin: 0 0 3px; font-size: 15px; }.trace-panel .section-head p { margin: 0; color: #9096a2; font-size: 10px; }.trace-list { max-height: 620px; overflow: auto; margin-top: 7px; }.trace-row { align-items: flex-start; gap: 8px; padding: 9px 0; border-bottom: 1px solid #f0f2f5; }.trace-row > i { width: 8px; height: 8px; flex: 0 0 8px; margin-top: 5px; border-radius: 50%; background: #a6acb8; }.trace-row > i.success { background: #34a46f; }.trace-row > i.warning { background: #ff922c; }.trace-row > i.danger { background: #dd4739; }.trace-row > div { min-width: 0; flex: 1; }.trace-row strong { font-size: 11px; }.trace-row strong small { color: #617185; font-weight: 500; }.trace-row p { margin: 4px 0; color: #617185; font-size: 10px; }.trace-row div > small { display: block; color: #a6acb8; font-size: 9px; overflow-wrap: anywhere; }.error-text { color: #b83e35; font-size: 10px; }
 .report-preview { max-height: 64vh; overflow: auto; color: #383c41; font-size: 13px; line-height: 1.7; }.report-preview :deep(h1), .report-preview :deep(h2), .report-preview :deep(h3) { margin: 16px 0 8px; }.report-preview :deep(p) { margin: 7px 0; }.report-preview :deep(table) { width: 100%; border-collapse: collapse; }.report-preview :deep(th), .report-preview :deep(td) { padding: 6px; border: 1px solid #e3eaf2; text-align: left; }
 @media (max-width: 1280px) { .workspace { align-items: stretch; flex-direction: column; }.trace-panel { width: auto; flex-basis: auto; }.trace-list { max-height: 300px; } }
-@media (max-width: 760px) { .page-head, .scenario-list, .scenario-card { display: flex; align-items: stretch; flex-direction: column; }.scenario-option { min-width: 0; }.scenario-actions { justify-content: flex-start; }.event-heading { align-items: flex-start; flex-direction: column; }.event-facts { align-items: flex-start; flex-wrap: wrap; }.event-facts > div { flex-basis: 50%; }.flow-strip { align-items: flex-start; flex-direction: column; }.flow-strip > div { width: 100%; }.two-col { grid-template-columns: 1fr; }.grade-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.report-row { align-items: flex-start; flex-wrap: wrap; }.report-copy { flex-basis: calc(100% - 44px); } }
+@media (max-width: 760px) { .page-head, .scenario-list, .scenario-card { display: flex; align-items: stretch; flex-direction: column; }.scenario-list button { min-width: 0; }.scenario-actions { justify-content: flex-start; }.event-heading { align-items: flex-start; flex-direction: column; }.event-facts { align-items: flex-start; flex-wrap: wrap; }.event-facts > div { flex-basis: 50%; }.flow-strip { align-items: flex-start; flex-direction: column; }.flow-strip > div { width: 100%; }.two-col { grid-template-columns: 1fr; }.grade-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.report-row { align-items: flex-start; flex-wrap: wrap; }.report-copy { flex-basis: calc(100% - 44px); } }
 </style>

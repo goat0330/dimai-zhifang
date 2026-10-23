@@ -79,7 +79,17 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => `/dizai/ai/rag${path}`
         },
-        '^/api/system/model-providers/models/v2(?:\\?.*)?$': {
+        '^/api/tasks': {
+          target: env.VITE_API_URL || 'http://127.0.0.1:8007',
+          changeOrigin: true,
+          rewrite: (path) => `/dizai/ai/rag${path}`
+        },
+        '^/api/graph': {
+          target: env.VITE_API_URL || 'http://127.0.0.1:8007',
+          changeOrigin: true,
+          rewrite: (path) => `/dizai/ai/rag${path}`
+        },
+        '^/api/system/(?:model-providers|ocr|config)(?:/.*)?(?:\\?.*)?$': {
           target: env.VITE_API_URL || 'http://127.0.0.1:8007',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, '/dizai/ai/rag/api')

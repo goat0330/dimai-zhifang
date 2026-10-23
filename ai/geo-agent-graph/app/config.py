@@ -2,7 +2,7 @@ from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[3]
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     dify_a5_api_key: SecretStr = SecretStr("")
     p6_api_base_url: str = "http://127.0.0.1:8017"
     p6_timeout_seconds: float = 8.0
-    yichang_gold_db_path: str = str(PACKAGE_ROOT / "ai" / "geo-agent-graph" / ".runtime" / "yichang_gold.sqlite3")
-    yichang_gold_fixture_dir: str = str(PACKAGE_ROOT / "data" / "demo-gold")
+    yichang_scenario_db_path: str = str(PACKAGE_ROOT / "ai" / "geo-agent-graph" / ".runtime" / "yichang_scenario.sqlite3")
+    yichang_scenario_fixture_dir: str = str(PACKAGE_ROOT / "data" / "yichang-scenario")
     cors_allowed_origins: str = "http://127.0.0.1:5174,https://127.0.0.1:5174,http://localhost:5174"
 
 settings = Settings()

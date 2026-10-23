@@ -130,7 +130,7 @@ def _business_record_reference(query: str) -> dict[str, str] | None:
 
 
 def _gold_database_uri() -> str | None:
-    path = Path(settings.yichang_gold_db_path)
+    path = Path(settings.yichang_scenario_db_path)
     if not path.is_absolute():
         path = Path(__file__).resolve().parents[1] / path
     if not path.is_file():
