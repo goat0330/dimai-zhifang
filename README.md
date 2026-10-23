@@ -22,12 +22,13 @@ geo_rag 地址：http://127.0.0.1:5175/
 
 - frontend/geo-guard-fe：地脉智控宜昌演示界面。
 - frontend/geo_rag：geo_rag 知识检索界面。
-- ai/geo-agent-graph：宜昌演示流程服务。
+- ai/geo-agent-graph：宜昌业务流程接口，接收演示页面操作、读取本地场景记录并保存流程数据；需要知识检索时调用 geo_rag 服务。
 - ai/geo_rag：geo_rag 检索服务。
 - data/demo-gold：宜昌秭归演示场景数据。
 - backend/geo-guard-backend：完整 Java 业务后端源码、框架模块和本地构建/初始化脚本。
 
-该 Java 后端源码单独保留在 backend/geo-guard-backend 中；当前宜昌演示的 Docker Compose 不启动这套 Java 服务，演示所需的前后端服务由本目录中的 Compose 配置启动。
+启动演示时，Docker Compose 会运行宜昌界面、geo_rag 界面、宜昌业务流程接口和 geo_rag 检索服务。Java 后端源码保留在 backend/geo-guard-backend 中，但当前演示的 Docker Compose 不启动该 Java 服务。
+
 - compose.yaml 与各目录中的 Dockerfile：服务构建和启动配置。
 - 启动地脉智控宜昌演示.bat、停止地脉智控宜昌演示.bat：Windows 启停入口。
 

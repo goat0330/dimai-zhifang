@@ -96,7 +96,7 @@ def _readable_evidence(result: Mapping[str, Any], monitoring: Mapping[str, Any])
         f"P6快照来源模式：{p6_mode}；官方预警允许：{warning_allowed_label}。",
     ))
     if result.get("is_simulated") is True:
-        lines.append(f"Gold回归规则命中：{matched}；仅用于模拟回归，不代表官方预警阈值。")
+        lines.append(f"演示场景规则命中：{matched}；仅用于模拟分析，不代表官方预警阈值。")
     else:
         lines.append(f"真实监测阈值判断：{monitoring.get('status', 'missing')}；未据此生成正式预警。")
     if p6_dynamic.get("status") == "candidate_available":

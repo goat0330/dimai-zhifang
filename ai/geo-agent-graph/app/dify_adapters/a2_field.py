@@ -1,10 +1,4 @@
-"""A2 bridge for the GEO识图-多图汇总 Chatflow and its Yichang YAML copy.
-
-The DSL has no custom Start variables: pass field context through ``query`` and
-uploaded images through ``files``/``sys.files``. After importing and publishing
-the copy, a real smoke must verify those inputs and outputs ``aiReportDetail``,
-``aiRiskLabel``, and ``aiVisionProps``; this module does not imply deployment.
-"""
+"""A2 bridge for field image reports."""
 
 from __future__ import annotations
 
