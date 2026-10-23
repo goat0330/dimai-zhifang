@@ -1,0 +1,312 @@
+import asyncio
+from functools import partial
+from pathlib import Path
+
+from . import db
+from .config import settings
+from .embedding import embed_batched, embed_texts_sync, enabled as embedding_enabled
+from . import milvus_store
+from .parser import parse_file, parse_text
+from .yuxi_port.chunk_presets import normalize_chunk_config, normalize_preset
+from .yuxi_port.chunking import chunk_blocks
+from yuxi.knowledge.utils.kb_utils import resolve_processing_params
+
+
+def document_processing_params(document: dict, kb_config: dict, request_params: dict | None = None) -> dict:
+    chunking = kb_config.get("chunking") or {}
+    stored = (document.get("metadata") or {}).get("processing_params")
+    if stored is None and document.get("chunk_preset_id"):
+        stored = {"chunk_preset_id": document["chunk_preset_id"],
+                  "chunk_parser_config": document.get("chunk_parser_config") or {}}
+    request = dict(request_params or {})
+    if request.get("chunk_preset_id"):
+        normalize_preset(request["chunk_preset_id"])
+    if "chunk_parser_config" in request and not isinstance(request["chunk_parser_config"], dict):
+        raise ValueError("chunk_parser_config must be an object")
+    params = resolve_processing_params(
+        {"chunk_preset_id": chunking.get("chunk_preset_id", "general"),
+         "chunk_parser_config": {key: value for key, value in chunking.items() if key != "chunk_preset_id"}},
+        stored, request,
+    )
+    params["chunk_parser_config"] = normalize_chunk_config(params["chunk_parser_config"])
+    return params
+
+
+def _embedding_model(config: dict | None) -> str:
+    return (config or {}).get("model") or settings.embedding_model
+
+
+async def _chunk_blocks(
+    blocks: list[dict],
+    preset: str,
+    parser_config: dict,
+    file_name: str,
+    embedding_config: dict | None,
+) -> list[dict]:
+    if preset == "semantic" and embedding_enabled(embedding_config):
+        embed_fn = partial(embed_texts_sync, config=embedding_config)
+        return await asyncio.to_thread(chunk_blocks, blocks, preset, parser_config, file_name, embed_fn)
+    return chunk_blocks(blocks, preset, parser_config, file_name)
+
+
+async def _embed_chunks(chunks: list[dict], config: dict | None = None) -> int:
+    if not chunks or not embedding_enabled(config):
+        return 0
+    vectors = await embed_batched([chunk["text"] for chunk in chunks], config)
+    if vectors is None or len(vectors) != len(chunks):
+        raise ValueError("Embedding vector count does not match chunk count")
+    for chunk, vector in zip(chunks, vectors, strict=True):
+        db.update_embedding(chunk["id"], vector, _embedding_model(config))
+        chunk["embedding"] = vector
+    return len(vectors)
+
+
+async def _index_document(
+    file_name: str,
+    file_path: str | None,
+    mime_type: str,
+    parser_name: str,
+    blocks: list[dict],
+    preset: str,
+    parser_config: dict,
+    metadata: dict | None,
+    knowledge_base_id: str | None = None,
+    folder_id: str | None = None,
+    embedding_config: dict | None = None,
+    document_id: str | None = None,
+) -> dict:
+    if document_id is None:
+        document_id = db.create_document(
+            file_name,
+            file_path,
+            mime_type,
+            parser_name,
+            preset,
+            parser_config,
+            {"source_type": "pdf" if mime_type == "application/pdf" else "text", **(metadata or {})},
+            knowledge_base_id,
+            folder_id,
+        )
+    try:
+        if not blocks:
+            raise ValueError("文档中没有可索引的文本；扫描 PDF 或图片请配置可用的 OCR Parser")
+        db.update_document_status(document_id, "chunking", parser=parser_name)
+        chunks = await _chunk_blocks(blocks, preset, parser_config, file_name, embedding_config)
+        if not chunks:
+            raise ValueError("切块结果为空，未创建可检索资料")
+        db.replace_blocks(document_id, blocks)
+        db.replace_chunks(document_id, chunks)
+        if embedding_enabled(embedding_config):
+            db.update_document_status(document_id, "embedding")
+        embedded = await _embed_chunks(chunks, embedding_config)
+        vector_index = None
+        if settings.rag_search_backend == "milvus":
+            if not knowledge_base_id:
+                raise ValueError("Milvus indexing requires a knowledge base")
+            vector_index = await milvus_store.upsert_document(
+                knowledge_base_id,
+                document_id,
+                db.get_chunks(document_id),
+                embedding_config,
+            )
+        db.update_document_status(document_id, "indexed")
+    except Exception as exc:
+        db.update_document_status(document_id, "failed", str(exc))
+        raise
+    return {
+        "document_id": document_id,
+        "file_name": file_name,
+        "parser": parser_name,
+        "blocks": len(blocks),
+        "chunks": len(chunks),
+        "embedded_chunks": embedded,
+        "embedding_enabled": embedding_enabled(embedding_config),
+        "embedding_model": _embedding_model(embedding_config) if embedded else None,
+        "chunk_preset_id": preset,
+        "chunk_parser_config": parser_config,
+        "vector_index": vector_index,
+        "status": "indexed",
+    }
+
+
+async def ingest_pdf(
+    path: str,
+    file_name: str | None = None,
+    preset: str = "general",
+    parser_config: dict | None = None,
+    metadata: dict | None = None,
+    knowledge_base_id: str | None = None,
+    folder_id: str | None = None,
+    embedding_config: dict | None = None,
+    parser_adapter: dict | None = None,
+) -> dict:
+    normalized_preset = normalize_preset(preset)
+    normalized_config = normalize_chunk_config(parser_config)
+    source_path = str(Path(path).resolve())
+    parser_options = {**(parser_adapter or {}), "knowledge_base_id": knowledge_base_id}
+    requested_parser = parser_options.get("ocr_engine") or parser_options.get("engine") or "auto"
+    parser_name = requested_parser
+    name = file_name or Path(path).name
+    document_id = db.create_document(
+        name, source_path, "application/pdf", requested_parser, normalized_preset, normalized_config,
+        {"source_type": "pdf", **(metadata or {})}, knowledge_base_id, folder_id,
+    )
+    try:
+        db.update_document_status(document_id, "parsing")
+        blocks, parser_name = await parse_file(source_path, parser_options)
+        db.update_document_status(document_id, "parsed", parser=parser_name)
+        return await _index_document(
+            name,
+            source_path,
+            "application/pdf",
+            parser_name,
+            blocks,
+            normalized_preset,
+            normalized_config,
+            metadata,
+            knowledge_base_id,
+            folder_id,
+            embedding_config,
+            document_id,
+        )
+    except Exception as exc:
+        db.update_document_status(document_id, "failed", str(exc), parser=parser_name)
+        raise
+
+
+async def ingest_file(
+    path: str,
+    file_name: str,
+    mime_type: str,
+    preset: str = "general",
+    parser_config: dict | None = None,
+    metadata: dict | None = None,
+    knowledge_base_id: str | None = None,
+    folder_id: str | None = None,
+    embedding_config: dict | None = None,
+    parser_adapter: dict | None = None,
+) -> dict:
+    """Parse and index a supported local document while preserving its source file."""
+    normalized_preset = normalize_preset(preset)
+    normalized_config = normalize_chunk_config(parser_config)
+    source_path = str(Path(path).resolve())
+    name = Path(file_name).name
+    document_id = db.create_document(
+        name, source_path, mime_type, "pending", normalized_preset, normalized_config,
+        {"source_type": Path(name).suffix.lower().lstrip(".") or "text", **(metadata or {})},
+        knowledge_base_id, folder_id,
+    )
+    try:
+        db.update_document_status(document_id, "parsing")
+        parser_options = {**(parser_adapter or {}), "knowledge_base_id": knowledge_base_id}
+        blocks, parser_name = await parse_file(source_path, parser_options)
+        db.update_document_status(document_id, "parsed", parser=parser_name)
+        return await _index_document(
+            name, source_path, mime_type, parser_name, blocks, normalized_preset,
+            normalized_config, metadata, knowledge_base_id, folder_id,
+            embedding_config, document_id,
+        )
+    except Exception as exc:
+        db.update_document_status(document_id, "failed", str(exc))
+        raise
+
+
+async def ingest_text(
+    file_name: str,
+    text: str,
+    preset: str = "general",
+    parser_config: dict | None = None,
+    metadata: dict | None = None,
+    knowledge_base_id: str | None = None,
+    folder_id: str | None = None,
+    embedding_config: dict | None = None,
+) -> dict:
+    normalized_preset = normalize_preset(preset)
+    normalized_config = normalize_chunk_config(parser_config)
+    name = Path(file_name).name
+    document_id = db.create_document(
+        name, None, "text/plain", "plain-text", normalized_preset, normalized_config,
+        {"source_type": "text", **(metadata or {})}, knowledge_base_id, folder_id,
+    )
+    try:
+        db.update_document_status(document_id, "parsing")
+        blocks = parse_text(text)
+        db.update_document_status(document_id, "parsed", parser="plain-text")
+        return await _index_document(
+            name,
+            None,
+            "text/plain",
+            "plain-text",
+            blocks,
+            normalized_preset,
+            normalized_config,
+            metadata,
+            knowledge_base_id,
+            folder_id,
+            embedding_config,
+            document_id,
+        )
+    except Exception as exc:
+        db.update_document_status(document_id, "failed", str(exc), parser="plain-text")
+        raise
+
+
+async def parse_existing_document(document_id: str, parser_override: dict | None = None) -> dict:
+    document = db.get_document(document_id)
+    if not document:
+        raise ValueError("Document not found")
+    knowledge_base = db.get_knowledge_base(document["knowledge_base_id"]) if document.get("knowledge_base_id") else None
+    kb_config = knowledge_base.get("config", {}) if knowledge_base else {}
+    parser_config = {**(kb_config.get("parser", {}) or {}), **(parser_override or {})}
+    processing_params = document_processing_params(document, kb_config, parser_override)
+    if processing_params.get("ocr_engine"):
+        parser_config["ocr_engine"] = processing_params["ocr_engine"]
+    if parser_config.get("ocr_engine"):
+        parser_config["engine"] = parser_config.pop("ocr_engine")
+    path = document.get("file_path")
+    try:
+        db.update_document_processing_params(document_id, processing_params)
+        db.update_document_status(document_id, "parsing")
+        if path and Path(path).is_file():
+            blocks, parser_name = await parse_file(path, parser_config)
+        else:
+            blocks = db.get_blocks(document_id)
+            if not blocks:
+                raise ValueError("原始文件或解析文本不存在，无法重新解析")
+            parser_name = document.get("parser") or "stored-blocks"
+        db.replace_blocks(document_id, blocks)
+        db.update_document_status(document_id, "parsed", parser=parser_name)
+        return {"document_id": document_id, "status": "parsed", "parser": parser_name, "blocks": len(blocks)}
+    except Exception as exc:
+        db.update_document_status(document_id, "failed", str(exc))
+        raise
+
+
+async def index_existing_document(document_id: str, params: dict | None = None) -> dict:
+    document = db.get_document(document_id)
+    if not document:
+        raise ValueError("Document not found")
+    if document["status"] not in {"parsed", "indexed", "failed"}:
+        raise ValueError(f"文件当前状态 {document['status']}，不能开始索引")
+    knowledge_base = db.get_knowledge_base(document["knowledge_base_id"]) if document.get("knowledge_base_id") else None
+    kb_config = knowledge_base.get("config", {}) if knowledge_base else {}
+    processing_params = document_processing_params(document, kb_config, params)
+    parser_config = processing_params["chunk_parser_config"]
+    blocks = db.get_blocks(document_id)
+    if not blocks:
+        raise ValueError("文件尚未解析，请先执行解析")
+    db.update_document_processing_params(document_id, processing_params)
+    return await _index_document(
+        document["file_name"],
+        document.get("file_path"),
+        document["mime_type"],
+        document.get("parser") or "stored-blocks",
+        blocks,
+        processing_params["chunk_preset_id"],
+        parser_config,
+        document.get("metadata", {}),
+        document.get("knowledge_base_id"),
+        document.get("folder_id"),
+        kb_config.get("embedding"),
+        document_id,
+    )

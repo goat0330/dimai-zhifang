@@ -1,0 +1,178 @@
+{
+  "investigation_record_id": "FIXTURE:ZG:INVESTIGATION:01",
+  "runtime_investigation_id": null,
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "discovery_id": "FIXTURE:ZG:DISCOVERY:01",
+  "alarm_id": "FIXTURE:ZG:ALARM:01",
+  "stage_id": "GOLD-02",
+  "is_simulated": true,
+  "data_source": "local_gold_fixture:GOLD-02:investigation",
+  "investigation_time": {
+    "start": "2026-10-15T09:18:00+08:00",
+    "end": "2026-10-15T09:35:00+08:00"
+  },
+  "team": [
+    {
+      "person_fixture_id": "FIXTURE:ZG:PERSON:INV-01",
+      "display_name": "Gold模拟调查员·ZG-01",
+      "role": "现场核查"
+    },
+    {
+      "person_fixture_id": "FIXTURE:ZG:PERSON:INV-02",
+      "display_name": "Gold模拟记录员·ZG-02",
+      "role": "记录员"
+    }
+  ],
+  "location": {
+    "admin_area": "宜昌市秭归县",
+    "hazard_point_id": "420527108005000001",
+    "hazard_point_name": "白果园不稳定斜坡（滑坡）",
+    "source_record_id": "59f2adcea4f04ffab46baaeb9a87065c",
+    "local_gold_slope_unit_id": "GOLD-SU-ZIGUI-001",
+    "p6_slope_unit_id": "YCSV2_000660",
+    "mapping_status": "candidate_unverified",
+    "gps": null,
+    "coordinate_status": "unverified",
+    "map_display": {
+      "longitude": 110.8121,
+      "latitude": 30.8718,
+      "coordinate_crs": "EPSG:4326",
+      "coordinate_crs_status": "UNVERIFIED",
+      "is_synthetic": false,
+      "source_record_id": "59f2adcea4f04ffab46baaeb9a87065c",
+      "purpose": "隐患点库存坐标候选展示，不代表现场核准坐标或监测设备位置"
+    },
+    "mapping_scope": "gold_demo_query_only",
+    "mapping_source": "按隐患点库存坐标在当前斜坡单元图层做空间候选关联；原坐标系未核实，仅供本次演示链路查询。",
+    "coordinate_crs_status": "UNVERIFIED"
+  },
+  "disaster_type": {
+    "value": "监测异常关联现场核查",
+    "status": "suspected_not_confirmed"
+  },
+  "geological_environment": {
+    "scenario_assumptions": [
+      "合成图像表现林地坡面及裂缝场景，仅供流程演示。"
+    ],
+    "lithology": null,
+    "slope_height_m": null,
+    "slope_angle_deg": null,
+    "groundwater": null,
+    "rainfall_station": null,
+    "status": "not_verified"
+  },
+  "observed_features": [
+    "合成图像可见裂缝外观，尺寸/方向未量测。"
+  ],
+  "threat_objects": [
+    {
+      "type": "residents",
+      "count": null,
+      "status": "unknown_not_zero"
+    },
+    {
+      "type": "buildings",
+      "count": null,
+      "status": "unknown_not_zero"
+    },
+    {
+      "type": "road_or_utility",
+      "count": null,
+      "status": "unknown_not_zero"
+    }
+  ],
+  "injuries": {
+    "injured": null,
+    "fatalities": null,
+    "status": "not_reported_not_zero"
+  },
+  "photo_refs": [
+    {
+      "path": "fixtures/tests/gold/yichang/assets/GOLD-03-follow-up-synthetic.png",
+      "media_kind": "synthetic_scene_image",
+      "evidence_scope": "scene context only; not actual site evidence"
+    }
+  ],
+  "conclusion": "模拟调查情节：模拟雨量/位移异常和现场湿润迹象支持启动强化巡查、临时告知与排水核查；正式稳定性判定仍需真实设备和专业调查。；既有隐患点真实空间关系、现场GPS及长期稳定性仍未实证。",
+  "missing_fields": [
+    "GPS/CRS",
+    "裂缝尺寸",
+    "地层及坡体参数",
+    "受威胁对象",
+    "实测雨量/设备校准"
+  ],
+  "monitor_summary": {
+    "as_of": "2026-10-15T09:00:00+08:00",
+    "rain_windows_mm": {
+      "24h": 50.9,
+      "72h": 81.9,
+      "168h": 84.9
+    },
+    "rain_1h_mm": 10.8,
+    "displacement_mm": 8.4,
+    "displacement_rate_mm_per_day": 5.1,
+    "reservoir_level_m": 159.0,
+    "reservoir_trend": "rising",
+    "is_simulated": true
+  },
+  "mock_case_facts": {
+    "source_kind": "synthetic_case_narrative_for_mock",
+    "is_simulated": true,
+    "real_world_verified": false,
+    "discovery_summary": "虚拟组合监测终端雨量增大、位移速率抬升触发Gold异常规则，值班人员派发模拟现场核查；这不是地灾正式预警信号。",
+    "field_observations": [
+      {
+        "item": "模拟坡面湿润状况",
+        "value": "现场核查情节发现坡面有浅表径流痕迹和局部湿润带",
+        "source": "虚构现场核查记录",
+        "is_simulated": true
+      },
+      {
+        "item": "模拟裂缝情况",
+        "value": "观察到一处长约1.8米、张开宽度约0.5–1.5厘米的浅表裂缝",
+        "source": "虚构现场核查记录",
+        "is_simulated": true
+      },
+      {
+        "item": "监测异常",
+        "value": "至10月15日09时，模拟24/72/168小时雨量分别为50.9/81.9/84.9毫米，位移速率5.1毫米/日",
+        "source": "GOLD-02模拟监测序列",
+        "is_simulated": true
+      }
+    ],
+    "geological_environment_mock": "模拟场景设定为坡面覆土、局部排水沟受降雨影响的斜坡；不能推断实际地层岩性、坡高及地下水分布。",
+    "threats_mock": [
+      {
+        "object": "模拟附近住户",
+        "quantity": "2户6人",
+        "status": "scenario_assumption",
+        "real_world_verified": false
+      },
+      {
+        "object": "模拟巡查便道",
+        "quantity": "约60米关注区",
+        "status": "scenario_assumption",
+        "real_world_verified": false
+      }
+    ],
+    "casualties_mock": "本虚构场景设定未报告伤亡；不代表真实世界统计。",
+    "preliminary_conclusion": "模拟雨量/位移异常和现场湿润迹象支持启动强化巡查、临时告知与排水核查；正式稳定性判定仍需真实设备和专业调查。",
+    "residual_risk": "GOLD-03模拟观测趋于缓和，但长期降雨再触发风险仍需持续监测；不自动解除真实预警。"
+  },
+  "case_reference_type": "synthetic_business_observations_for_demonstration",
+  "mock_threat_objects": [
+    {
+      "object": "模拟附近住户",
+      "quantity": "2户6人",
+      "status": "scenario_assumption",
+      "real_world_verified": false
+    },
+    {
+      "object": "模拟巡查便道",
+      "quantity": "约60米关注区",
+      "status": "scenario_assumption",
+      "real_world_verified": false
+    }
+  ],
+  "mock_measurements_not_real_world_evidence": true
+}

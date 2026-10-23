@@ -1,0 +1,12 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 UV_LINK_MODE=copy PYTHONPATH=/app/vendor
+RUN pip install --no-cache-dir uv==0.11.7
+COPY pyproject.toml uv.lock ./
+COPY app ./app
+COPY vendor ./vendor
+RUN uv sync --frozen --no-dev
+
+EXPOSE 8010
+CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010"]

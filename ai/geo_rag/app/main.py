@@ -1,0 +1,1903 @@
+import math
+import copy
+import csv
+import io
+import re
+import sqlite3
+import time
+import uuid
+import zipfile
+import json
+import mimetypes
+from contextlib import asynccontextmanager
+from pathlib import Path, PurePosixPath
+from urllib.parse import urlparse
+
+import httpx
+import json_repair
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
+
+from . import db, milvus_store
+from .chat import ChatProviderUnavailable, complete_chat
+from .config import settings
+from .provider_store import resolve_runtime_config
+from .embedding import embed_texts, enabled as embedding_enabled, value as embedding_value
+from .parser import parse_file, parse_pdf_layout, parse_pdf_mineru, parse_pdf_mineru_official, render_pdf_page
+from .pipeline import index_existing_document, ingest_file, ingest_pdf, ingest_text, parse_existing_document
+from .permissions import (
+    ResourcePermission,
+    can_read,
+    normalize_share_config,
+    permission_for,
+    request_user,
+    require_access,
+)
+from .knowledge_features import (
+    build_entity_graph,
+    generate_mindmap,
+    index_knowledge_graph_vectors,
+    indexed_content_fingerprint,
+    mindmap_document_page,
+    mindmap_file_map,
+    remove_document_from_graphs,
+    remove_document_from_mindmaps,
+)
+from .retrieval import ProviderUnavailable, retrieve, retrieve_debug
+from .yuxi_port.rerank import enabled as reranker_enabled, rerank
+from .yuxi_port import _upstream  # noqa: F401
+from yuxi.knowledge.implementations.dify import DifyKB
+from yuxi.knowledge.implementations.notion import NOTION_API_BASE, NotionAPIError, NotionKB
+from yuxi.knowledge.read_models import KnowledgeBaseConfig
+from yuxi.knowledge.utils.mindmap_utils import detect_mindmap_changes
+from .yuxi_port.evaluation import calculate_retrieval_metrics
+from .schemas import (
+    EmbeddingTestRequest,
+    EvaluationRequest,
+    EvaluationCase,
+    Evidence,
+    FolderPayload,
+    FolderRenamePayload,
+    DocumentBatchPayload,
+    DocumentMovePayload,
+    MindMapPayload,
+    GraphConfigPayload,
+    EvaluationRunPayload,
+    KnowledgeBasePayload,
+    KnowledgeBaseUpdatePayload,
+    RetrieveRequest,
+    RetrieveResponse,
+    RerankerTestRequest,
+    TextDocumentRequest,
+)
+from .yuxi_port.chunk_presets import get_options, normalize_chunk_config, normalize_preset
+from .yuxi_port.ragflow_like.nlp import count_tokens
+
+@asynccontextmanager
+async def _lifespan(_app):
+    from .task_runtime import resume_pending_tasks
+
+    resume_pending_tasks()
+    yield
+
+
+app = FastAPI(title="geo_rag API", version="0.2.0", lifespan=_lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
+
+async def _request_knowledge_base_ids(request: Request) -> list[str]:
+    parts = request.url.path.strip("/").split("/")
+    ids: list[str] = []
+    if len(parts) >= 4 and parts[:3] in (["api", "knowledge", "databases"], ["api", "evaluation", "databases"]):
+        if parts[3] not in {"external", "accessible"}:
+            ids.append(parts[3])
+    elif len(parts) >= 5 and parts[:4] == ["api", "knowledge", "databases", "external"]:
+        ids.append(parts[4])
+    elif len(parts) >= 4 and parts[:3] == ["api", "v1", "knowledge-bases"]:
+        ids.append(parts[3])
+
+    query_id = request.query_params.get("kb_id") or request.query_params.get("knowledge_base_id")
+    if query_id:
+        ids.append(query_id)
+    document_id = request.query_params.get("document_id") or request.query_params.get("file_id")
+    document_index = next((index for index, part in enumerate(parts[:-1]) if part == "documents"), None)
+    if document_index is not None:
+        document_id = document_id or parts[document_index + 1]
+    if document_id:
+        document = db.get_document(document_id)
+        if document and document.get("knowledge_base_id"):
+            ids.append(document["knowledge_base_id"])
+    if len(parts) >= 4 and parts[:3] == ["api", "evaluation", "datasets"]:
+        dataset_id = parts[3]
+        for knowledge_base in db.list_knowledge_bases():
+            if db.get_evaluation_dataset(knowledge_base["id"], dataset_id):
+                ids.append(knowledge_base["id"])
+                break
+    body_paths = {
+        "/api/v1/retrieve", "/api/v1/debug/retrieve", "/api/v1/documents/upload",
+        "/api/v1/documents/pdf", "/api/v1/documents/text", "/api/knowledge/files/markdown",
+        "/api/knowledge/files/process-folder", "/api/knowledge/files/import-workspace",
+    }
+    if request.url.path in body_paths and request.method in {"POST", "PUT", "PATCH"}:
+        content_type = request.headers.get("content-type", "").lower()
+        try:
+            raw_body = await request.body()
+            body_replayed = False
+
+            async def replay_body():
+                nonlocal body_replayed
+                if body_replayed:
+                    return {"type": "http.disconnect"}
+                body_replayed = True
+                return {"type": "http.request", "body": raw_body, "more_body": False}
+
+            if "application/json" in content_type:
+                payload = request.state.permission_payload = await request.json()
+            elif "multipart/form-data" in content_type:
+                payload = request.state.permission_payload = await request.form()
+            else:
+                payload = None
+            request._receive = replay_body
+        except (ValueError, RuntimeError):
+            payload = None
+
+        if isinstance(payload, dict) or hasattr(payload, "get"):
+            for key in ("knowledge_base_id", "kb_id", "database_id"):
+                value = payload.get(key)
+                if value:
+                    ids.append(str(value))
+            filters = payload.get("filters")
+            if isinstance(filters, dict) and filters.get("knowledge_base_id"):
+                ids.append(str(filters["knowledge_base_id"]))
+
+    return list(dict.fromkeys(value for value in ids if value))
+
+
+YUXI_ADMIN_ENDPOINTS = {
+    ("GET", "/api/knowledge/databases"),
+    ("POST", "/api/knowledge/databases"),
+    ("GET", "/api/knowledge/mindmap/databases"),
+    ("POST", "/api/knowledge/files/fetch-url"),
+    ("POST", "/api/knowledge/files/import-workspace"),
+    ("POST", "/api/knowledge/files/upload"),
+    ("GET", "/api/knowledge/files/supported-types"),
+    ("POST", "/api/knowledge/files/markdown"),
+    ("GET", "/api/knowledge/types"),
+    ("GET", "/api/knowledge/chunk-presets"),
+    ("GET", "/api/knowledge/stats"),
+    ("POST", "/api/knowledge/generate-description"),
+    ("GET", "/api/graph/list"),
+}
+YUXI_SUPERADMIN_ENDPOINTS = {
+    ("GET", "/api/dashboard/stats/knowledge"),
+}
+
+
+@app.middleware("http")
+async def enforce_knowledge_base_permissions(request: Request, call_next):
+    user = request_user(request)
+    request.state.rag_user = user
+    path_parts = request.url.path.strip("/").split("/")
+    is_yuxi_admin_evaluation_dataset_route = (
+        path_parts[:3] == ["api", "evaluation", "datasets"]
+        and (
+            (request.method == "DELETE" and len(path_parts) == 4)
+            or (request.method == "GET" and len(path_parts) == 5 and path_parts[4] == "download")
+        )
+    )
+    if (
+        (request.method, request.url.path) in YUXI_SUPERADMIN_ENDPOINTS
+        and user["role"] != "superadmin"
+    ):
+        return JSONResponse(status_code=403, content={"detail": "需要超级管理员权限"})
+    if (
+        (request.method, request.url.path) in YUXI_ADMIN_ENDPOINTS
+        or is_yuxi_admin_evaluation_dataset_route
+        or (request.url.path == "/api/v1/knowledge-bases" and request.method == "POST")
+    ) and user["role"] not in {"admin", "superadmin"}:
+        return JSONResponse(status_code=403, content={"detail": "需要管理员权限"})
+
+    path = request.url.path
+    read_only_post = (
+        path in {"/api/v1/retrieve", "/api/v1/debug/retrieve"}
+        or path == "/api/knowledge/files/markdown"
+        or path.endswith(("/query", "/query-test", "/connection-test"))
+    )
+    is_external_read = "/api/knowledge/databases/external/" in path
+    required = ResourcePermission.READ if request.method in {"GET", "HEAD", "OPTIONS"} or read_only_post or is_external_read else ResourcePermission.MANAGE
+
+    for knowledge_base_id in await _request_knowledge_base_ids(request):
+        knowledge_base = db.get_knowledge_base(knowledge_base_id)
+        if not knowledge_base:
+            continue
+        try:
+            permission = permission_for(user, knowledge_base)
+            require_access(user, knowledge_base, required)
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+        request.state.rag_can_manage = permission == ResourcePermission.MANAGE
+
+    return await call_next(request)
+
+ALLOWED_UPLOADS = {
+    ".pdf", ".txt", ".md", ".csv", ".json", ".html", ".htm",
+    ".docx", ".pptx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png",
+    ".bmp", ".tiff", ".tif", ".webp",
+}
+SUPPORTED_UPLOAD_TYPES = ALLOWED_UPLOADS | {".zip"}
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+
+
+def _provider_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, ProviderUnavailable):
+        return HTTPException(status_code=503, detail=str(exc))
+    if isinstance(exc, NotionAPIError):
+        return HTTPException(status_code=502, detail="Notion API 请求失败")
+    if isinstance(exc, httpx.HTTPError):
+        return HTTPException(status_code=502, detail=f"外部解析或模型服务请求失败：{type(exc).__name__}")
+    if isinstance(exc, ValueError):
+        return HTTPException(status_code=422, detail=str(exc))
+    return HTTPException(status_code=500, detail="RAG pipeline failed")
+
+
+def _public_document(document: dict) -> dict:
+    return {key: value for key, value in document.items() if key != "file_path"}
+
+
+def _public_knowledge_base(knowledge_base: dict) -> dict:
+    result = copy.deepcopy(knowledge_base)
+    for section_name in ("parser", "embedding", "reranker", "dify", "notion", "graph"):
+        section = result.get("config", {}).get(section_name)
+        if not isinstance(section, dict):
+            continue
+        if section_name == "graph":
+            options = section.get("graph_build_config", {}).get("extractor_options")
+            if isinstance(options, dict) and "api_key" in options:
+                options["api_key_set"] = bool(options.pop("api_key"))
+        for key in ("api_key", "token", "dify_token"):
+            if key in section:
+                section[f"{key}_set"] = bool(section.pop(key))
+    return result
+
+
+def _merge_config(current: dict, incoming: dict) -> dict:
+    merged = copy.deepcopy(current or db.default_knowledge_base_config())
+    for section, values in incoming.items():
+        if isinstance(values, dict) and isinstance(merged.get(section), dict):
+            clean_values = {key: value for key, value in values.items() if not key.endswith("_set")}
+            updated = {**merged[section], **clean_values}
+            for secret in ("api_key", "token", "dify_token"):
+                if secret in clean_values and not clean_values[secret] and merged[section].get(secret):
+                    updated[secret] = merged[section][secret]
+            merged[section] = updated
+        else:
+            merged[section] = values
+    chunking = merged.get("chunking", {})
+    merged["chunking"] = {
+        "chunk_preset_id": normalize_preset(chunking.get("chunk_preset_id", "general")),
+        **normalize_chunk_config(
+            {
+                "chunk_token_num": chunking.get("chunk_token_num", 512),
+                "overlapped_percent": chunking.get("overlapped_percent", 10),
+                "delimiter": chunking.get("delimiter", "\\n"),
+            }
+        ),
+    }
+    retrieval = merged.get("retrieval", {})
+    for name, value in db.default_knowledge_base_config()["retrieval"].items():
+        retrieval.setdefault(name, value)
+    for name, minimum, maximum in (("recall_top_k", 1, 200), ("final_top_k", 1, 100)):
+        value = int(retrieval.get(name, 50 if name == "recall_top_k" else 8))
+        if not minimum <= value <= maximum:
+            raise ValueError(f"{name} 必须在 {minimum}-{maximum} 之间")
+        retrieval[name] = value
+    if retrieval.get("search_mode", "hybrid") not in {"hybrid", "keyword", "vector"}:
+        raise ValueError("不支持的检索模式")
+    for name, default in (("bm25_top_k", 50),):
+        value = int(retrieval.get(name, default))
+        if not 1 <= value <= 200:
+            raise ValueError(f"{name} 必须在 1-200 之间")
+        retrieval[name] = value
+    for name in ("similarity_threshold", "bm25_drop_ratio_search"):
+        value = float(retrieval.get(name, 0.0))
+        if not 0 <= value <= 1:
+            raise ValueError(f"{name} 必须在 0-1 之间")
+        retrieval[name] = value
+    retrieval["use_graph_retrieval"] = bool(retrieval.get("use_graph_retrieval", False))
+    for name, minimum, maximum, default in (
+        ("graph_entity_top_k", 1, 100, 10),
+        ("graph_triple_top_k", 1, 100, 10),
+        ("graph_max_nodes", 100, 50000, 10000),
+        ("graph_top_k", 1, 200, 20),
+    ):
+        value = int(retrieval.get(name, default))
+        if not minimum <= value <= maximum:
+            raise ValueError(f"{name} 必须在 {minimum}-{maximum} 之间")
+        retrieval[name] = value
+    retrieval["graph_weight"] = float(retrieval.get("graph_weight", 1.0))
+    if not 0 <= retrieval["graph_weight"] <= 5:
+        raise ValueError("graph_weight 必须在 0-5 之间")
+    retrieval["ppr_damping"] = float(retrieval.get("ppr_damping", 0.85))
+    if not 0.1 <= retrieval["ppr_damping"] <= 0.99:
+        raise ValueError("ppr_damping 必须在 0.1-0.99 之间")
+    graph = merged.get("graph", {})
+    graph["max_keywords_per_document"] = int(graph.get("max_keywords_per_document", 12))
+    if not 1 <= graph["max_keywords_per_document"] <= 50:
+        raise ValueError("graph.max_keywords_per_document 必须在 1-50 之间")
+    merged["graph"] = graph
+    for name in ("vector_weight", "bm25_weight"):
+        retrieval[name] = float(retrieval.get(name, 0.7 if name == "vector_weight" else 0.3))
+        if not 0 <= retrieval[name] <= 1:
+            raise ValueError(f"{name} 必须在 0-1 之间")
+    if retrieval["vector_weight"] + retrieval["bm25_weight"] <= 0:
+        raise ValueError("Vector 与 BM25 权重不能同时为 0")
+    merged["retrieval"] = retrieval
+    merged["share_config"] = normalize_share_config(merged.get("share_config"))
+    return merged
+
+
+def _validate_model_config(config: dict) -> None:
+    for section_name in ("embedding", "reranker"):
+        section = config.get(section_name, {})
+        base_url = str(section.get("base_url") or "").strip()
+        if base_url and urlparse(base_url).scheme not in {"http", "https"}:
+            raise ValueError(f"{section_name} 服务地址必须是 http 或 https")
+    embedding = config.get("embedding", {})
+    dimensions = embedding.get("dimensions")
+    if dimensions not in (None, "") and int(dimensions) < 1:
+        raise ValueError("Embedding dimensions 必须大于 0")
+    if embedding.get("batch_size") is not None and not 1 <= int(embedding["batch_size"]) <= 128:
+        raise ValueError("Embedding batch_size 必须在 1-128 之间")
+    if config.get("reranker", {}).get("protocol", "openai") not in {"openai", "dashscope"}:
+        raise ValueError("不支持的 Reranker 协议")
+    parser = config.get("parser", {})
+    from .yuxi_port import _upstream  # noqa: F401
+    from yuxi.knowledge.parser.capabilities import PARSER_CAPABILITIES
+
+    if parser.get("engine", "auto") not in {"auto", "pymupdf-layout", "mineru", "mineru_ocr", "mineru_official", "disable", *PARSER_CAPABILITIES}:
+        raise ValueError("不支持的 PDF 解析器")
+    mineru_url = str(parser.get("mineru_api_uri") or "").strip()
+    if mineru_url and urlparse(mineru_url).scheme not in {"http", "https"}:
+        raise ValueError("MinerU API URL 必须是 http 或 https")
+    dify = config.get("dify", {})
+    dify_values = [str(dify.get(key) or "").strip() for key in ("dify_api_url", "dify_token", "dify_dataset_id")]
+    if any(dify_values) and not all(dify_values):
+        raise ValueError("Dify 连接需要同时填写 API URL、Token 和 Dataset ID")
+    if dify_values[0] and not dify_values[0].rstrip("/").endswith("/v1"):
+        raise ValueError("Dify API URL 必须以 /v1 结尾")
+    notion = config.get("notion", {})
+    notion_base = str(notion.get("base_url") or "https://api.notion.com/v1").strip()
+    if notion_base and urlparse(notion_base).scheme not in {"http", "https"}:
+        raise ValueError("Notion API URL 必须是 http 或 https")
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "geo_rag"}
+
+
+@app.post("/api/v1/providers/embedding/test")
+async def test_embedding_provider(request: EmbeddingTestRequest):
+    config = resolve_runtime_config(request.model_dump(exclude_unset=True), "embedding")
+    if not embedding_enabled(config):
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "provider": "openai-compatible", "error": "请配置 Embedding Base URL、API Key 和模型"},
+        )
+    try:
+        started = time.perf_counter()
+        vectors = await embed_texts(["宜昌地质灾害知识检索 Embedding 连通性测试"], config)
+        if not vectors:
+            return JSONResponse(status_code=502, content={"status": "error", "provider": "openai-compatible", "error": "模型未返回向量"})
+        return {
+            "status": "ok",
+            "provider": "openai-compatible",
+            "model": embedding_value(config, "model", settings.embedding_model),
+            "dimensions": len(vectors[0]),
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+        }
+    except httpx.HTTPError as exc:
+        raise _provider_error(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/providers/parser/test")
+async def test_parser_provider(
+    file: UploadFile = File(...),
+    engine: str = Form("mineru"),
+    mineru_api_uri: str | None = Form(None),
+    mineru_api_key: str | None = Form(None),
+):
+    file_name = Path(file.filename or "document.pdf").name
+    if Path(file_name).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=400, detail="MinerU 测试只接受 PDF 文件")
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="单文件最大 100 MB")
+    if not content.startswith(b"%PDF-"):
+        raise HTTPException(status_code=422, detail="上传内容不是有效 PDF")
+    selected_engine = (engine or "mineru").strip()
+    Path(settings.rag_upload_dir).mkdir(parents=True, exist_ok=True)
+    temp_path = Path(settings.rag_upload_dir) / f"provider-test-{uuid.uuid4().hex}.pdf"
+    temp_path.write_bytes(content)
+    try:
+        from .yuxi_port import _upstream  # noqa: F401
+        from .ocr_api import _effective_fields
+        from yuxi.knowledge.parser.capabilities import PARSER_CAPABILITIES
+
+        supported_engines = {"auto", "disable", "pymupdf-layout", "mineru", *PARSER_CAPABILITIES}
+        if selected_engine not in supported_engines:
+            raise HTTPException(status_code=422, detail="不支持的 PDF 解析器")
+        endpoint_uri = (mineru_api_uri or "").strip()
+        api_key = (mineru_api_key or "").strip()
+        if selected_engine in {"mineru", "mineru_ocr"} and not (
+            endpoint_uri
+            or settings.mineru_api_uri
+            or _effective_fields("mineru_ocr_host_opts").get("server_url")
+        ):
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unavailable", "provider": selected_engine, "error": "MinerU 服务地址未配置"},
+            )
+        if selected_engine == "mineru_official" and not (
+            api_key
+            or settings.mineru_api_key
+            or _effective_fields("mineru_official_api_opts").get("api_key")
+        ):
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unavailable", "provider": selected_engine, "error": "MinerU 官方 API Key 未配置"},
+            )
+
+        blocks, actual_engine = await parse_file(
+            str(temp_path),
+            {"engine": selected_engine, "mineru_api_uri": endpoint_uri, "api_key": api_key},
+        )
+        if not blocks:
+            raise ValueError("解析器未返回可索引文本")
+        return {
+            "status": "ok",
+            "provider": actual_engine,
+            "file_name": file_name,
+            "blocks": len(blocks),
+            "pages": len({block.get("page") for block in blocks if block.get("page") is not None}),
+            "bbox_count": sum(bool(block.get("bbox")) for block in blocks),
+            "sample_text": blocks[0]["text"][:300] if blocks else "",
+        }
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            status_code=502,
+            content={"status": "error", "provider": selected_engine, "error": f"解析器返回 HTTP {exc.response.status_code}"},
+        )
+    except httpx.HTTPError as exc:
+        return JSONResponse(
+            status_code=502,
+            content={"status": "error", "provider": selected_engine, "error": f"解析器请求失败：{type(exc).__name__}"},
+        )
+    except ImportError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "provider": selected_engine, "error": f"解析器依赖未安装：{exc.name or type(exc).__name__}"},
+        )
+    except OSError as exc:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "provider": selected_engine, "error": f"解析器资源不可用：{type(exc).__name__}"},
+        )
+    except (ValueError, zipfile.BadZipFile) as exc:
+        missing_config = any(token in str(exc) for token in ("未配置", "未安装", "not configured", "not installed"))
+        return JSONResponse(
+            status_code=503 if missing_config else 422,
+            content={
+                "status": "unavailable" if missing_config else "error",
+                "provider": selected_engine,
+                "error": str(exc),
+            },
+        )
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+@app.post("/api/v1/providers/reranker/test")
+async def test_reranker_provider(request: RerankerTestRequest):
+    config = resolve_runtime_config(
+        request.model_dump(exclude={"query", "documents"}, exclude_unset=True, exclude_none=True), "rerank"
+    )
+    protocol = config.get("protocol") or settings.rerank_protocol
+    if any(not document.strip() for document in request.documents):
+        raise HTTPException(status_code=422, detail="documents 不能包含空文本")
+    if not reranker_enabled(config):
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unavailable", "provider": protocol, "error": "请配置 Reranker Base URL、API Key 和模型"},
+        )
+    try:
+        started = time.perf_counter()
+        scores = await rerank(request.query, request.documents, config)
+        if scores is None or len(scores) != len(request.documents):
+            raise ValueError("Rerank score count does not match the document count")
+        return {
+            "status": "ok",
+            "provider": protocol,
+            "model": config.get("model", settings.rerank_model),
+            "document_count": len(request.documents),
+            "scores": scores,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+        }
+    except httpx.HTTPError as exc:
+        raise _provider_error(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/config")
+async def config():
+    from .yuxi_port.rerank import enabled as rerank_enabled
+
+    return {
+        "embedding_enabled": embedding_enabled(),
+        "embedding_model": settings.embedding_model or None,
+        "reranker_enabled": rerank_enabled(),
+        "rerank_model": settings.rerank_model or None,
+        "mineru_enabled": settings.mineru_enabled and bool(settings.mineru_api_uri),
+        "parser_default": "mineru-file_parse" if settings.mineru_enabled and settings.mineru_api_uri else "pymupdf-layout",
+        "storage": "sqlite+local-files",
+        "vector_storage": "sqlite-json (local learning mode)",
+    }
+
+
+@app.get("/api/v1/pipeline")
+async def pipeline():
+    from .yuxi_port.rerank import enabled as rerank_enabled
+
+    vector_status = "configured" if embedding_enabled() else "optional"
+    return {
+        "stages": [
+            {"id": "document", "label": "Document", "status": "ready", "description": "PDF、文本和结构化文本资料"},
+            {"id": "parse", "label": "Parse / Layout", "status": "ready", "description": "PyMuPDF 页码与 bbox；可选 MinerU /file_parse"},
+            {"id": "chunk", "label": "Chunk", "status": "ready", "description": "内置分块方案、估算 Token 边界与原文位置"},
+            {"id": "embedding", "label": "Embedding", "status": vector_status, "description": "可选 OpenAI-compatible Embedding"},
+            {"id": "bm25", "label": "BM25", "status": "ready", "description": "本地关键词召回"},
+            {"id": "vector", "label": "Vector", "status": vector_status, "description": "仅在真实 Embedding 已配置时运行"},
+            {"id": "fusion", "label": "Fusion", "status": "ready", "description": "配置向量时按权重融合 BM25 与 Vector"},
+            {"id": "rerank", "label": "Rerank", "status": "configured" if rerank_enabled() else "optional", "description": "OpenAI-like 或 DashScope 协议；显式请求但未配置会报错"},
+            {"id": "evidence", "label": "Evidence", "status": "ready", "description": "原文、Evidence ID、PDF page 与 bbox"},
+            {"id": "context", "label": "Final Context", "status": "ready", "description": "发给下游 Agent 的最终 Evidence Context"},
+        ]
+    }
+
+
+@app.get("/api/v1/chunk-presets")
+async def chunk_presets():
+    return {"chunk_presets": get_options()}
+
+
+@app.get("/api/v1/types")
+async def knowledge_base_types():
+    return {"types": {
+        "local": {"name": "Geo RAG 本地向量知识库", "description": "本地文件、SQLite BM25 与可选 Embedding 向量检索", "supports_documents": True, "requires_embedding_model": False},
+        "dify": {"name": "Dify Dataset", "description": "只读连接 Dify Dataset Retrieve API", "supports_documents": False, "requires_embedding_model": False},
+        "notion": {"name": "Notion", "description": "只读连接 Notion workspace 页面搜索", "supports_documents": False, "requires_embedding_model": False},
+    }}
+
+
+@app.get("/api/v1/files/supported-types")
+async def supported_file_types():
+    return {"extensions": sorted(SUPPORTED_UPLOAD_TYPES), "max_upload_bytes": MAX_UPLOAD_BYTES}
+
+
+@app.get("/api/v1/stats")
+async def knowledge_statistics():
+    knowledge_bases = db.list_knowledge_bases()
+    documents = db.list_documents()
+    return {
+        "knowledge_base_count": len(knowledge_bases),
+        "document_count": len(documents),
+        "chunk_count": sum(item["chunk_count"] for item in documents),
+        "token_count": sum(item["token_count"] for item in documents),
+        "status_counts": {status: sum(item["status"] == status for item in documents)
+                          for status in ("uploaded", "parsing", "parsed", "chunking", "embedding", "indexed", "failed")},
+    }
+
+
+def _knowledge_base_or_404(knowledge_base_id: str) -> dict:
+    knowledge_base = db.get_knowledge_base(knowledge_base_id)
+    if not knowledge_base:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+    return knowledge_base
+
+
+@app.get("/api/v1/knowledge-bases")
+async def knowledge_bases(request: Request):
+    user = request.state.rag_user
+    return [_public_knowledge_base(item) for item in db.list_knowledge_bases() if can_read(user, item)]
+
+
+@app.post("/api/v1/knowledge-bases")
+async def create_knowledge_base(payload: KnowledgeBasePayload, http_request: Request):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="知识库名称不能为空")
+    try:
+        config = _merge_config(db.default_knowledge_base_config(), payload.config)
+        if payload.kb_type == "local" and "search_mode" not in (payload.config or {}).get("retrieval", {}):
+            config["retrieval"]["search_mode"] = "hybrid"
+        _validate_model_config(config)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        user = http_request.state.rag_user
+        knowledge_base = db.create_knowledge_base(
+            name,
+            payload.description.strip(),
+            payload.kb_type,
+            created_by=user["uid"],
+            created_by_department_id=user.get("department_id"),
+        )
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="知识库名称已存在") from exc
+    if payload.config or payload.kb_type == "local":
+        knowledge_base = db.update_knowledge_base(
+            knowledge_base["id"], knowledge_base["name"], knowledge_base["description"], knowledge_base["kb_type"], config
+        )
+    return _public_knowledge_base(knowledge_base)
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}")
+async def get_knowledge_base(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    knowledge_base = next(item for item in db.list_knowledge_bases() if item["id"] == knowledge_base_id)
+    return _public_knowledge_base(knowledge_base)
+
+
+@app.put("/api/v1/knowledge-bases/{knowledge_base_id}")
+async def update_knowledge_base(knowledge_base_id: str, request: KnowledgeBaseUpdatePayload):
+    current = _knowledge_base_or_404(knowledge_base_id)
+    try:
+        config = _merge_config(current["config"], request.config)
+        current_config = current.get("config") or {}
+        current_embedding_model = str((current_config.get("embedding") or {}).get("model") or "").strip()
+        updated_embedding_model = str((config.get("embedding") or {}).get("model") or "").strip()
+        if current_embedding_model and updated_embedding_model != current_embedding_model:
+            raise ValueError("Embedding 模型创建后不可修改；如需更换，请新建知识库并重新入库")
+        _validate_model_config(config)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    name = request.name.strip() if request.name else current["name"]
+    description = request.description.strip() if request.description is not None else current["description"]
+    try:
+        updated = db.update_knowledge_base(knowledge_base_id, name, description, current["kb_type"], config)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="知识库名称已存在") from exc
+    return _public_knowledge_base(updated)
+
+
+@app.delete("/api/v1/knowledge-bases/{knowledge_base_id}")
+async def delete_knowledge_base(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    if not db.delete_knowledge_base(knowledge_base_id):
+        raise HTTPException(status_code=409, detail="请先删除知识库中的文件，再删除知识库")
+    return {"deleted": True}
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/folders")
+async def folders(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    return db.list_folders(knowledge_base_id)
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/folders")
+async def create_folder(knowledge_base_id: str, request: FolderPayload):
+    _knowledge_base_or_404(knowledge_base_id)
+    if not request.name.strip():
+        raise HTTPException(status_code=422, detail="文件夹名称不能为空")
+    if request.parent_id and not db.folder_exists(request.parent_id, knowledge_base_id):
+        raise HTTPException(status_code=404, detail="Parent folder not found")
+    try:
+        return db.create_folder(knowledge_base_id, request.name.strip(), request.parent_id)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="同级目录下已存在同名文件夹") from exc
+
+
+@app.put("/api/v1/knowledge-bases/{knowledge_base_id}/folders/{folder_id}/rename")
+async def rename_folder(knowledge_base_id: str, folder_id: str, request: FolderRenamePayload):
+    _knowledge_base_or_404(knowledge_base_id)
+    try:
+        folder = db.rename_folder(folder_id, knowledge_base_id, request.name.strip())
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="同级目录下已存在同名文件夹") from exc
+    if not folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    return folder
+
+
+@app.delete("/api/v1/knowledge-bases/{knowledge_base_id}/folders/{folder_id}")
+async def remove_folder(knowledge_base_id: str, folder_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    if not db.delete_folder(folder_id, knowledge_base_id):
+        raise HTTPException(status_code=409, detail="文件夹不存在或仍包含文件/子文件夹")
+    return {"deleted": True}
+
+
+@app.put("/api/v1/knowledge-bases/{knowledge_base_id}/documents/{document_id}/move")
+async def move_knowledge_base_document(knowledge_base_id: str, document_id: str, request: DocumentMovePayload):
+    _knowledge_base_or_404(knowledge_base_id)
+    if request.folder_id and not db.folder_exists(request.folder_id, knowledge_base_id):
+        raise HTTPException(status_code=404, detail="Folder not found")
+    if not db.move_document(document_id, knowledge_base_id, request.folder_id):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"document_id": document_id, "folder_id": request.folder_id}
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/documents")
+async def knowledge_base_documents(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    return [_public_document(item) for item in db.list_documents(knowledge_base_id)]
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/documents/search")
+async def search_knowledge_base_documents(knowledge_base_id: str, q: str = ""):
+    _knowledge_base_or_404(knowledge_base_id)
+    query = q.strip().casefold()
+    items = db.list_documents(knowledge_base_id)
+    if query:
+        items = [item for item in items if query in item["file_name"].casefold() or query in str(item.get("metadata", {}).get("relative_path", "")).casefold()]
+    return [_public_document(item) for item in items]
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/documents/exists")
+async def knowledge_base_document_exists(knowledge_base_id: str, filename: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    exists = any(item["file_name"] == filename or item.get("metadata", {}).get("relative_path") == filename
+                 for item in db.list_documents(knowledge_base_id))
+    return {"exists": exists, "filename": filename}
+
+
+@app.delete("/api/v1/knowledge-bases/{knowledge_base_id}/documents/batch")
+async def batch_delete_knowledge_base_documents(knowledge_base_id: str, request: DocumentBatchPayload):
+    _knowledge_base_or_404(knowledge_base_id)
+    deleted = []
+    missing = []
+    failures = []
+    for document_id in dict.fromkeys(request.document_ids):
+        document = db.get_document(document_id)
+        if not document or document["knowledge_base_id"] != knowledge_base_id:
+            missing.append(document_id)
+            continue
+        try:
+            await delete_knowledge_base_document(knowledge_base_id, document_id)
+            deleted.append(document_id)
+        except Exception as exc:
+            failures.append({"document_id": document_id, "error_message": str(exc)[:500]})
+    return {"deleted": deleted, "not_found": missing, "failed": failures}
+
+
+async def _process_document_batch(knowledge_base_id: str, document_ids: list[str], operation: str, params: dict | None = None):
+    _knowledge_base_or_404(knowledge_base_id)
+    processed = []
+    failures = []
+    for document_id in dict.fromkeys(document_ids):
+        document = db.get_document(document_id)
+        if not document or document["knowledge_base_id"] != knowledge_base_id:
+            failures.append({"document_id": document_id, "error_message": "Document not found"})
+            continue
+        try:
+            result = await (parse_existing_document(document_id, params) if operation == "parse" else index_existing_document(document_id, params))
+            processed.append(result)
+        except Exception as exc:
+            failures.append({"document_id": document_id, "error_message": str(exc)[:500]})
+    return {"operation": operation, "processed": processed, "failed": failures}
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/documents/parse")
+async def parse_knowledge_base_documents(knowledge_base_id: str, request: DocumentBatchPayload):
+    return await _process_document_batch(knowledge_base_id, request.document_ids, "parse", request.params)
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/documents/parse-pending")
+async def parse_pending_knowledge_base_documents(knowledge_base_id: str, params: dict | None = None):
+    items = [doc["id"] for doc in db.list_documents(knowledge_base_id) if doc["status"] == "uploaded"]
+    return await _process_document_batch(knowledge_base_id, items, "parse", params)
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/documents/index")
+async def index_knowledge_base_documents(knowledge_base_id: str, request: DocumentBatchPayload):
+    return await _process_document_batch(knowledge_base_id, request.document_ids, "index", request.params)
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/documents/index-pending")
+async def index_pending_knowledge_base_documents(knowledge_base_id: str, params: dict | None = None):
+    items = [doc["id"] for doc in db.list_documents(knowledge_base_id) if doc["status"] == "parsed"
+             or (doc["status"] == "failed" and (doc.get("metadata") or {}).get("failure_stage") == "index")]
+    return await _process_document_batch(knowledge_base_id, items, "index", params)
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/documents/{document_id}/chunks")
+async def knowledge_base_document_chunks(knowledge_base_id: str, document_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    document = db.get_document(document_id)
+    if not document or document["knowledge_base_id"] != knowledge_base_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return db.get_chunks(document_id, include_embedding=False)
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/documents/{document_id}/basic")
+async def knowledge_base_document_basic(knowledge_base_id: str, document_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    document = db.get_document(document_id)
+    if not document or document["knowledge_base_id"] != knowledge_base_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return _public_document(document)
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/documents/{document_id}/content")
+async def knowledge_base_document_content(knowledge_base_id: str, document_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    document = db.get_document(document_id)
+    if not document or document["knowledge_base_id"] != knowledge_base_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"document_id": document_id, "file_name": document["file_name"],
+            "blocks": db.get_blocks(document_id), "text": "\n\n".join(block["text"] for block in db.get_blocks(document_id))}
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/documents/{document_id}/download")
+async def download_knowledge_base_document(knowledge_base_id: str, document_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    document = db.get_document(document_id)
+    if not document or document["knowledge_base_id"] != knowledge_base_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    path = Path(document.get("file_path") or "")
+    upload_root = Path(settings.rag_upload_dir).resolve()
+    if not path.is_file() or not path.resolve().is_relative_to(upload_root):
+        raise HTTPException(status_code=404, detail="原始文件不可下载")
+    return FileResponse(path, media_type=document.get("mime_type"), filename=document["file_name"])
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/query-params")
+async def get_knowledge_base_query_params(knowledge_base_id: str):
+    knowledge_base = _knowledge_base_or_404(knowledge_base_id)
+    return knowledge_base.get("config", {}).get("retrieval", {})
+
+
+@app.put("/api/v1/knowledge-bases/{knowledge_base_id}/query-params")
+async def update_knowledge_base_query_params(knowledge_base_id: str, retrieval: dict):
+    current = _knowledge_base_or_404(knowledge_base_id)
+    try:
+        config = _merge_config(current["config"], {"retrieval": retrieval})
+        _validate_model_config(config)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    saved = db.update_knowledge_base(knowledge_base_id, current["name"], current["description"], current["kb_type"], config)
+    return saved["config"]["retrieval"]
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/sample-questions")
+async def get_sample_questions(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    return {"questions": db.list_sample_questions(knowledge_base_id)}
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/sample-questions")
+async def save_sample_questions(knowledge_base_id: str, payload: dict):
+    _knowledge_base_or_404(knowledge_base_id)
+    questions = payload.get("questions")
+    if not isinstance(questions, list):
+        raise HTTPException(status_code=503, detail="问题生成需要配置 LLM；当前 API 只保存显式提供的问题")
+    clean = list(dict.fromkeys(str(item).strip() for item in questions if str(item).strip()))
+    db.save_sample_questions(knowledge_base_id, clean)
+    return {"questions": clean}
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/mindmap/files")
+async def mindmap_files(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    return [_public_document(item) for item in db.list_documents(knowledge_base_id)]
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/mindmap/generate")
+async def generate_knowledge_base_mindmap(knowledge_base_id: str, request: MindMapPayload):
+    knowledge_base = _knowledge_base_or_404(knowledge_base_id)
+    if knowledge_base["kb_type"] != "local":
+        raise HTTPException(status_code=501, detail="此只读连接器不支持思维导图生成")
+    try:
+        result = await generate_mindmap(
+            knowledge_base,
+            request.document_ids or None,
+            request.user_prompt,
+            request.incremental,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"思维导图模型请求失败（HTTP {exc.response.status_code}）") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=503, detail="思维导图模型暂时不可达") from exc
+    saved = db.save_knowledge_view(knowledge_base_id, "mindmap", "", result)
+    return {**saved["payload"], "created_at": saved["created_at"]}
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/mindmap")
+async def get_knowledge_base_mindmap(knowledge_base_id: str, document_id: str | None = None):
+    _knowledge_base_or_404(knowledge_base_id)
+    views = db.list_knowledge_views(knowledge_base_id, "mindmap")
+    if document_id:
+        views = [item for item in views if document_id in item["payload"].get("source_document_ids", item["source_id"].split(","))]
+    if not views:
+        return {"status": "not_generated", "mindmap": None}
+    return {"status": "ready", **views[0]["payload"], "created_at": views[0]["created_at"]}
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/mindmap/diff")
+async def knowledge_base_mindmap_diff(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    views = db.list_knowledge_views(knowledge_base_id, "mindmap")
+    all_documents = db.list_documents(knowledge_base_id)
+    saved = views[0]["payload"] if views else None
+    tracked_ids = set((saved or {}).get("source_document_ids", []))
+    if not tracked_ids and saved:
+        tracked_names = saved.get("source_document_names") or {}
+        tracked_ids = set(tracked_names)
+        if not tracked_ids:
+            tracked_ids = set(detect_mindmap_changes(
+                saved.get("mindmap"), None, mindmap_file_map(all_documents)
+            )["tracked_files"])
+    current_documents, current_total = mindmap_document_page(all_documents, tracked_ids)
+    current_files = mindmap_file_map(current_documents)
+    current_ids = set(current_files)
+    tracked_names = (saved or {}).get("source_document_names") or {
+        item: current_files.get(item, {}).get("filename", "")
+        for item in (saved or {}).get("source_document_ids", [])
+    }
+    changes = detect_mindmap_changes((saved or {}).get("mindmap"), tracked_names, current_files)
+    current_fingerprint = indexed_content_fingerprint(sorted(current_ids))
+    has_content_changes = bool(saved and saved.get("source_fingerprint") and saved["source_fingerprint"] != current_fingerprint)
+    return {
+        **changes,
+        "generated": bool(saved),
+        "tracked_files": sorted(changes["tracked_files"]),
+        "current_files": sorted(current_ids),
+        "removed_file_ids": sorted(changes["removed_file_ids"]),
+        "needs_update": changes["needs_update"] or has_content_changes,
+        "changed": has_content_changes,
+        "current_total": current_total,
+        "current_files_truncated": len(current_files) < current_total,
+        "current_fingerprint": current_fingerprint,
+        "saved_fingerprint": saved.get("source_fingerprint") if saved else None,
+        "kb_id": knowledge_base_id,
+        "slug": knowledge_base_id,
+        "message": "success",
+    }
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/graph")
+async def get_knowledge_graph(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    saved = db.get_knowledge_view(knowledge_base_id, "graph")
+    return {"status": "ready", **saved["payload"], "created_at": saved["created_at"]} if saved else {"status": "not_built", "nodes": [], "edges": []}
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/graph-build/status")
+async def knowledge_graph_status(knowledge_base_id: str):
+    knowledge_base = _knowledge_base_or_404(knowledge_base_id)
+    saved = db.get_knowledge_view(knowledge_base_id, "graph")
+    documents = [item for item in db.list_documents(knowledge_base_id) if item["status"] == "indexed"]
+    document_ids = sorted(item["id"] for item in documents)
+    total_chunks = sum(len(db.get_chunks(item["id"], include_embedding=False)) for item in documents)
+    config = _public_knowledge_base(knowledge_base).get("config", {}).get("graph", {}).get("graph_build_config")
+    if not saved:
+        return {
+            "status": "idle", "locked": bool(config and config.get("locked")), "config": config,
+            "node_count": 0, "edge_count": 0, "source_document_count": 0,
+            "total_chunks": total_chunks, "pending_chunks": total_chunks, "indexed_chunks": 0,
+            "structured_chunks": 0, "entity_count": 0, "relationship_count": 0,
+            "build_task_progress": 0,
+            "extraction_counts": {"completed": 0, "failed": 0, "pending": total_chunks, "processing": 0},
+            "vector_counts": {"supported": False, "completed": 0, "failed": 0, "pending": 0, "processing": 0},
+        }
+    graph = saved["payload"]
+    failed_count = len(graph.get("failed_chunks", []))
+    completed_count = max(0, graph.get("processed_chunk_count", 0) - failed_count)
+    outdated = (
+        sorted(graph.get("source_document_ids", [])) != document_ids
+        or graph.get("source_fingerprint") != indexed_content_fingerprint(document_ids)
+    )
+    pending_count = total_chunks if outdated else failed_count
+    entity_count = sum(1 for node in graph.get("nodes", []) if node.get("type") != "Chunk")
+    vector_index = graph.get("vector_index") or {"status": "not_built", "record_count": 0}
+    vector_expected_count = entity_count + sum(1 for edge in graph.get("edges", []) if edge.get("type") != "MENTIONS")
+    vector_completed_count = vector_index.get("record_count", 0) if vector_index.get("status") == "indexed" else 0
+    vector_failed_count = vector_expected_count if vector_index.get("status") == "error" else 0
+    overall_status = "outdated" if outdated else graph.get("status", "indexed")
+    if overall_status == "indexed" and vector_index.get("status") != "indexed":
+        overall_status = "partial"
+    return {
+        "status": overall_status,
+        "locked": bool(config and config.get("locked")), "config": config,
+        "node_count": len(graph["nodes"]), "edge_count": len(graph["edges"]),
+        "source_document_count": len(graph["source_document_ids"]),
+        "total_chunks": total_chunks, "pending_chunks": pending_count,
+        "indexed_chunks": completed_count if not outdated else 0,
+        "structured_chunks": completed_count if not outdated else 0,
+        "entity_count": entity_count, "relationship_count": len(graph.get("edges", [])),
+        "build_task_progress": 100 if not outdated and overall_status == "indexed" else 0,
+        "extraction_counts": {"completed": completed_count if not outdated else 0,
+                              "failed": failed_count if not outdated else 0,
+                              "pending": pending_count, "processing": 0},
+        "vector_counts": {
+            "supported": True,
+            "completed": vector_completed_count,
+            "failed": vector_failed_count,
+            "pending": max(0, vector_expected_count - vector_completed_count - vector_failed_count),
+            "processing": 0,
+        },
+        "vector_index": vector_index,
+        "created_at": saved["created_at"], "generation": graph["generation"],
+    }
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/graph-build/failed-chunks")
+async def knowledge_graph_failed_documents(knowledge_base_id: str, limit: int = 10):
+    _knowledge_base_or_404(knowledge_base_id)
+    saved = db.get_knowledge_view(knowledge_base_id, "graph")
+    failed = (saved or {}).get("payload", {}).get("failed_chunks", [])
+    return {"kb_id": knowledge_base_id, "samples": failed[:max(1, min(limit, 100))]}
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/graph-build/config")
+async def configure_knowledge_graph(knowledge_base_id: str, request: GraphConfigPayload):
+    current = _knowledge_base_or_404(knowledge_base_id)
+    if current["kb_type"] != "local":
+        raise HTTPException(status_code=501, detail="此只读连接器不开放图谱构建")
+    options = dict(request.extractor_options)
+    if options.get("model_params") is not None and not isinstance(options["model_params"], dict):
+        raise HTTPException(status_code=422, detail="图谱模型参数必须是 JSON 对象")
+    base_url = str(options.get("base_url") or "").strip()
+    if base_url and urlparse(base_url).scheme not in {"http", "https"}:
+        raise HTTPException(status_code=422, detail="图谱 LLM Base URL 必须是 http 或 https")
+    existing = current.get("config", {}).get("graph", {}).get("graph_build_config", {})
+    previous_options = existing.get("extractor_options", {})
+    if not str(options.get("api_key") or "").strip() and previous_options.get("api_key"):
+        options["api_key"] = previous_options["api_key"]
+    graph = {
+        "max_keywords_per_document": request.max_keywords_per_document,
+        "graph_build_config": {
+            "locked": True,
+            "extractor_type": request.extractor_type,
+            "extractor_options": options,
+            "created_at": existing.get("created_at") or db.now_iso(),
+            **({"updated_at": db.now_iso()} if existing else {}),
+        },
+    }
+    config = dict(current["config"])
+    config["graph"] = graph
+    updated = db.update_knowledge_base(knowledge_base_id, current["name"], current["description"], current["kb_type"], config)
+    public_graph = _public_knowledge_base(updated)["config"]["graph"]
+    return {"message": "图谱抽取配置已保存", "status": "success", "config": public_graph["graph_build_config"], "graph": public_graph}
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/graph-build/index")
+async def build_knowledge_graph_index(knowledge_base_id: str):
+    knowledge_base = _knowledge_base_or_404(knowledge_base_id)
+    if knowledge_base["kb_type"] != "local":
+        raise HTTPException(status_code=501, detail="此只读连接器不开放图谱构建")
+    config = knowledge_base.get("config", {}).get("graph", {}).get("graph_build_config", {})
+    if not config.get("locked") or config.get("extractor_type") != "llm":
+        raise HTTPException(status_code=409, detail="请先配置并保存 LLM 图谱抽取器")
+    try:
+        graph = await build_entity_graph(knowledge_base)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    graph["vector_index"] = await index_knowledge_graph_vectors(knowledge_base, graph)
+    saved = db.save_knowledge_view(knowledge_base_id, "graph", "", graph)
+    if graph["status"] == "failed" and not graph["nodes"]:
+        if graph["failed_chunks"] and all(item.get("http_status") == 429 for item in graph["failed_chunks"]):
+            raise HTTPException(status_code=429, detail="模型服务请求过于频繁，请稍后重试或降低并发数")
+        raise HTTPException(status_code=502, detail=f"图谱抽取失败：{len(graph['failed_chunks'])} 个 Chunk 均未成功")
+    overall_status = graph["status"]
+    if overall_status == "indexed" and graph["vector_index"].get("status") != "indexed":
+        overall_status = "partial"
+    return {"status": overall_status, "structure_status": graph["status"],
+            "node_count": len(graph["nodes"]), "edge_count": len(graph["edges"]),
+            "source_document_count": len(graph["source_document_ids"]), "created_at": saved["created_at"],
+            "generation": graph["generation"], "failed_chunk_count": len(graph["failed_chunks"]),
+            "processed_chunk_count": graph["processed_chunk_count"],
+            "vector_index": graph["vector_index"]}
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/graph-build/reset")
+async def reset_knowledge_graph(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    return {"reset": db.delete_knowledge_view(knowledge_base_id, "graph")}
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/graph-build/reconcile")
+async def reconcile_knowledge_graph(knowledge_base_id: str, mode: str = "failed"):
+    return await build_knowledge_graph_index(knowledge_base_id)
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/datasets/upload")
+async def upload_evaluation_dataset(
+    knowledge_base_id: str,
+    file: UploadFile = File(...),
+    name: str = Form(""),
+    description: str = Form(""),
+):
+    _knowledge_base_or_404(knowledge_base_id)
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="评估集最大 10 MB")
+    suffix = Path(file.filename or "").suffix.lower()
+    try:
+        if suffix == ".jsonl":
+            cases = []
+            for line_number, line in enumerate(content.decode("utf-8-sig").splitlines(), 1):
+                if not line.strip():
+                    continue
+                item = json.loads(line)
+                if not isinstance(item, dict) or "query" not in item:
+                    raise ValueError(f"第 {line_number} 行缺少 query 字段")
+                gold_ids = item.get("gold_chunk_ids") or []
+                cases.append({
+                    "query": item["query"],
+                    "gold_chunk_ids": gold_ids,
+                    "gold_answer": item.get("gold_answer"),
+                    "relevant_evidence_ids": [
+                        value if str(value).startswith("EV-") else f"EV-{value}"
+                        for value in gold_ids
+                    ],
+                    "top_k": 5,
+                    "filters": {},
+                })
+            dataset_name = name.strip() or Path(file.filename or "evaluation-dataset.jsonl").stem
+        elif suffix == ".json":
+            value = json.loads(content.decode("utf-8-sig"))
+            cases = value.get("cases", []) if isinstance(value, dict) else value
+            dataset_name = name.strip() or (str(value.get("name") or Path(file.filename or "evaluation-dataset.json").stem) if isinstance(value, dict) else Path(file.filename or "evaluation-dataset.json").stem)
+            if isinstance(value, dict) and not description:
+                description = str(value.get("description") or "")
+        elif suffix == ".csv":
+            rows = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
+            cases = []
+            for row in rows:
+                raw_ids = row.get("relevant_evidence_ids") or row.get("evidence_ids") or ""
+                cases.append({"query": row.get("query", ""), "relevant_evidence_ids": [item.strip() for item in re.split(r"[|;；\n]", raw_ids) if item.strip()], "top_k": int(row.get("top_k") or 5)})
+            dataset_name = name.strip() or Path(file.filename or "evaluation-dataset.csv").stem
+        else:
+            raise ValueError("只支持 JSONL、JSON 或 CSV 评估集")
+        if not isinstance(cases, list) or not cases:
+            raise ValueError("评估集必须包含 cases 数组")
+        validated = [EvaluationCase.model_validate(item) for item in cases]
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail=f"评估集格式无效：{exc}") from exc
+    if len(validated) > 100:
+        raise HTTPException(status_code=422, detail="评估集最多 100 条")
+    normalized_cases = [item.model_dump() for item in validated]
+    dataset = db.create_evaluation_dataset(
+        knowledge_base_id,
+        dataset_name[:120],
+        normalized_cases,
+        description=description[:1000],
+        build_metadata={
+            "source": "upload",
+            "status": "completed",
+            "progress": 100,
+            "filename": file.filename or "",
+        },
+    )
+    return {
+        "id": dataset["id"],
+        "dataset_id": dataset["dataset_id"],
+        "knowledge_base_id": dataset["knowledge_base_id"],
+        "name": dataset["name"],
+        "description": dataset["description"],
+        "case_count": dataset["case_count"],
+        "item_count": dataset["item_count"],
+        "has_gold_chunks": dataset["has_gold_chunks"],
+        "has_gold_answers": dataset["has_gold_answers"],
+        "build_metadata": dataset["build_metadata"],
+        "created_at": dataset["created_at"],
+    }
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/datasets")
+async def list_knowledge_base_evaluation_datasets(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    return db.list_evaluation_datasets(knowledge_base_id)
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/datasets/{dataset_id}")
+async def get_knowledge_base_evaluation_dataset(knowledge_base_id: str, dataset_id: str, page: int = 1, page_size: int = 50):
+    _knowledge_base_or_404(knowledge_base_id)
+    dataset = db.get_evaluation_dataset(knowledge_base_id, dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Evaluation dataset not found")
+    if page < 1 or page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=400, detail="分页参数无效")
+    total = dataset["item_count"]
+    return {**dataset, "total": total, "page": page, "page_size": page_size,
+            "cases": dataset["cases"][(page - 1) * page_size:page * page_size]}
+
+
+@app.delete("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/datasets/{dataset_id}")
+async def delete_knowledge_base_evaluation_dataset(knowledge_base_id: str, dataset_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    if not db.get_evaluation_dataset(knowledge_base_id, dataset_id):
+        raise HTTPException(status_code=404, detail="Evaluation dataset not found")
+    db.delete_evaluation_dataset(dataset_id)
+    return {"deleted": True}
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/runs")
+async def run_knowledge_base_evaluation(knowledge_base_id: str, payload: EvaluationRunPayload):
+    _knowledge_base_or_404(knowledge_base_id)
+    dataset_id = payload.dataset_id
+    cases = payload.cases
+    if dataset_id:
+        dataset = db.get_evaluation_dataset(knowledge_base_id, dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Evaluation dataset not found")
+        cases = [EvaluationCase.model_validate(item) for item in dataset["cases"]]
+    if not cases:
+        raise HTTPException(status_code=422, detail="请提供 cases 或 dataset_id")
+    scoped_cases = [item.model_copy(update={"filters": {**item.filters, "knowledge_base_id": knowledge_base_id}}) for item in cases]
+    result = await evaluation(EvaluationRequest(
+        cases=scoped_cases,
+        search_mode=payload.search_mode,
+        use_reranker=payload.use_reranker,
+        recall_top_k=payload.recall_top_k,
+        answer_llm=payload.answer_llm,
+        judge_llm=payload.judge_llm,
+    ))
+    result["name"] = payload.name
+    result["retrieval_config"] = {
+        "search_mode": payload.search_mode,
+        "use_reranker": payload.use_reranker,
+        "recall_top_k": payload.recall_top_k,
+        "answer_llm": payload.answer_llm,
+        "judge_llm": payload.judge_llm,
+    }
+    return db.create_evaluation_run(knowledge_base_id, dataset_id, result)
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/runs")
+async def list_knowledge_base_evaluation_runs(knowledge_base_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    return db.list_evaluation_runs(knowledge_base_id)
+
+
+@app.get("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/runs/{run_id}")
+async def get_knowledge_base_evaluation_run(knowledge_base_id: str, run_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    run = db.get_evaluation_run(knowledge_base_id, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Evaluation run not found")
+    return run
+
+
+@app.delete("/api/v1/knowledge-bases/{knowledge_base_id}/evaluation/runs/{run_id}")
+async def delete_knowledge_base_evaluation_run(knowledge_base_id: str, run_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    if not db.delete_evaluation_run(knowledge_base_id, run_id):
+        raise HTTPException(status_code=404, detail="Evaluation run not found")
+    return {"deleted": True}
+
+
+async def _dify_retrieve(request: RetrieveRequest, knowledge_base: dict) -> RetrieveResponse:
+    config = knowledge_base.get("config", {})
+    dify = config.get("dify", {})
+    try:
+        additional_params = DifyKB.validate_additional_params(dify)
+    except ValueError as exc:
+        raise ProviderUnavailable(f"Dify 连接未完成：{exc}") from exc
+
+    retrieval_config = config.get("retrieval", {})
+    search_mode = request.search_mode or retrieval_config.get("search_mode", "hybrid")
+    final_top_k = request.final_top_k or request.top_k or retrieval_config.get("final_top_k", 8)
+    query_config = KnowledgeBaseConfig(
+        kb_id=str(knowledge_base["id"]),
+        kb_type="dify",
+        query_params={
+            "options": {
+                "search_mode": search_mode,
+                "final_top_k": final_top_k,
+                "score_threshold_enabled": bool(retrieval_config.get("score_threshold_enabled", False)),
+                "similarity_threshold": request.similarity_threshold
+                if request.similarity_threshold is not None
+                else retrieval_config.get("similarity_threshold", 0.0),
+            }
+        },
+        additional_params=additional_params,
+    )
+    started = time.perf_counter()
+    results = await DifyKB(str(settings.rag_upload_dir)).aquery(
+        request.query.strip(),
+        str(knowledge_base["id"]),
+        config=query_config,
+    )
+    dataset_id = additional_params["dify_dataset_id"]
+    evidences = []
+    for index, result in enumerate(results[:final_top_k], start=1):
+        if not isinstance(result, dict):
+            continue
+        metadata = result.get("metadata") or {}
+        text = result.get("content")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        score = float(result.get("score") or 0.0)
+        segment_id = str(metadata.get("chunk_id") or index)
+        document_id = str(metadata.get("file_id") or dataset_id)
+        evidences.append(
+            Evidence(
+                evidence_id=f"DIFY-{knowledge_base['id']}-{segment_id}",
+                document_id=document_id,
+                chunk_id=segment_id,
+                file_name=str(metadata.get("source") or "Dify Dataset"),
+                page=None,
+                text=text,
+                token_count=count_tokens(text),
+                fusion_score=score,
+                source_spans=[],
+                scores={"bm25": None, "vector": None, "fusion": score, "rerank": None},
+                metadata={"rank": index, "provider": "dify", "dataset_id": dataset_id},
+            )
+        )
+    elapsed = round((time.perf_counter() - started) * 1000, 2)
+    final_context = "\n\n".join(
+        f"[{item.evidence_id}] {item.file_name}\n{item.text}" for item in evidences
+    )
+    return RetrieveResponse(
+        query=request.query.strip(),
+        evidences=evidences,
+        retrieval={
+            "mode": "dify-read-only",
+            "search_mode": search_mode,
+            "candidate_count": len(results),
+            "recall_top_k": request.recall_top_k or final_top_k,
+            "final_top_k": final_top_k,
+            "use_reranker": False,
+            "rerank_status": "not_supported_by_connector",
+        },
+        timing_ms={"dify": elapsed, "total": elapsed},
+        usage={"embedding_enabled": False, "reranker_enabled": False, "context_tokens": sum(item.token_count for item in evidences)},
+        final_context=final_context,
+    )
+
+
+async def _notion_retrieve(request: RetrieveRequest, knowledge_base: dict) -> RetrieveResponse:
+    config = knowledge_base.get("config", {})
+    notion = config.get("notion", {})
+    base_url = str(notion.get("base_url") or NOTION_API_BASE).rstrip("/")
+    if base_url != NOTION_API_BASE:
+        raise ValueError("当前 Notion 连接器只支持官方 Notion API 地址")
+    try:
+        additional_params = NotionKB.validate_additional_params(
+            {
+                "notion_token": notion.get("token") or "",
+                "notion_data_source_id": notion.get("data_source_id") or "",
+                "notion_version": notion.get("version") or "2026-03-11",
+            }
+        )
+    except ValueError as exc:
+        raise ProviderUnavailable(f"Notion 连接未配置：{exc}") from exc
+    retrieval = config.get("retrieval", {})
+    top_k = request.final_top_k or request.top_k or retrieval.get("final_top_k", 8)
+    search_mode = retrieval.get("notion_search_mode", "hybrid")
+    query_config = KnowledgeBaseConfig(
+        kb_id=str(knowledge_base["id"]),
+        kb_type="notion",
+        query_params={
+            "options": {
+                "search_mode": search_mode,
+                "final_top_k": top_k,
+                "max_scan_pages": retrieval.get("notion_max_scan_pages", 100),
+                "max_hydrate_pages": retrieval.get("notion_max_hydrate_pages", 20),
+                "snippet_window_lines": retrieval.get("notion_snippet_window_lines", 12),
+            }
+        },
+        additional_params=additional_params,
+    )
+    started = time.perf_counter()
+    results = await NotionKB(str(settings.rag_upload_dir)).aquery(
+        request.query.strip(), str(knowledge_base["id"]), config=query_config
+    )
+    evidences = []
+    for rank, result in enumerate(results[:top_k], start=1):
+        metadata = result.get("metadata") or {}
+        text = result.get("content")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        page_id = str(metadata.get("file_id") or rank)
+        chunk_id = str(metadata.get("chunk_id") or page_id)
+        score = float(result.get("score") or 0.0)
+        evidences.append(
+            Evidence(
+                evidence_id=f"NOTION-{knowledge_base['id']}-{chunk_id}",
+                document_id=page_id,
+                chunk_id=chunk_id,
+                file_name=str(metadata.get("source") or "Notion page"),
+                text=text,
+                token_count=count_tokens(text),
+                fusion_score=score,
+                scores={"bm25": None, "vector": None, "fusion": score, "rerank": None},
+                metadata={"provider": "notion", "rank": rank, "url": metadata.get("notion_url"), **metadata},
+            )
+        )
+    elapsed = round((time.perf_counter() - started) * 1000, 2)
+    final_context = "\n\n".join(f"[{item.evidence_id}] {item.file_name}\n{item.text}" for item in evidences)
+    return RetrieveResponse(
+        query=request.query.strip(),
+        evidences=evidences,
+        retrieval={"mode": "notion-yuxi-connector", "search_mode": search_mode, "candidate_count": len(results),
+                   "recall_top_k": request.recall_top_k or top_k, "final_top_k": top_k,
+                   "use_reranker": False, "rerank_status": "not_supported_by_connector"},
+        timing_ms={"notion": elapsed, "total": elapsed},
+        usage={"embedding_enabled": False, "reranker_enabled": False,
+               "context_tokens": sum(item.token_count for item in evidences)},
+        final_context=final_context,
+    )
+
+
+@app.post("/api/v1/knowledge-bases/{knowledge_base_id}/connection-test")
+async def test_knowledge_base_connection(knowledge_base_id: str):
+    knowledge_base = _knowledge_base_or_404(knowledge_base_id)
+    config = knowledge_base.get("config", {})
+    try:
+        if knowledge_base["kb_type"] == "dify":
+            result = await _dify_retrieve(
+                RetrieveRequest(query="地灾知识库连接测试", final_top_k=1, filters={"knowledge_base_id": knowledge_base_id}),
+                knowledge_base,
+            )
+            return {"ok": True, "provider": "dify", "evidence_count": len(result.evidences)}
+        if knowledge_base["kb_type"] == "notion":
+            result = await _notion_retrieve(
+                RetrieveRequest(query="地质灾害", final_top_k=1, filters={"knowledge_base_id": knowledge_base_id}),
+                knowledge_base,
+            )
+            return {"ok": True, "provider": "notion", "evidence_count": len(result.evidences)}
+        if knowledge_base["kb_type"] != "local":
+            raise HTTPException(status_code=501, detail="当前版本暂未接入此只读连接器")
+        embedding = config.get("embedding", {})
+        if not embedding_enabled(embedding):
+            raise ProviderUnavailable("尚未配置 Embedding API；本地 BM25 检索仍可使用")
+        vectors = await embed_texts(["地灾知识库连接测试"], embedding)
+        if not vectors:
+            raise HTTPException(status_code=502, detail="Embedding 服务没有返回向量")
+        return {"ok": True, "provider": "embedding", "model": embedding.get("model"), "dimensions": len(vectors[0])}
+    except (ProviderUnavailable, NotionAPIError, ValueError, httpx.HTTPError) as exc:
+        raise _provider_error(exc) from exc
+
+
+@app.delete("/api/v1/knowledge-bases/{knowledge_base_id}/documents/{document_id}")
+async def delete_knowledge_base_document(knowledge_base_id: str, document_id: str):
+    _knowledge_base_or_404(knowledge_base_id)
+    document = db.get_document(document_id)
+    if not document or document["knowledge_base_id"] != knowledge_base_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if settings.rag_search_backend == "milvus":
+        await milvus_store.delete_document(knowledge_base_id, document_id)
+    remove_document_from_mindmaps(document)
+    remove_document_from_graphs(document)
+    deleted = db.delete_document(document_id)
+    file_path = Path(deleted.get("file_path") or "").resolve()
+    upload_root = Path(settings.rag_upload_dir).resolve()
+    if file_path.is_file() and file_path.is_relative_to(upload_root):
+        file_path.unlink()
+    return {"deleted": True}
+
+
+@app.get("/api/v1/documents")
+async def documents(request: Request):
+    user = request.state.rag_user
+    visible = []
+    for document in db.list_documents():
+        knowledge_base_id = document.get("knowledge_base_id")
+        knowledge_base = db.get_knowledge_base(knowledge_base_id) if knowledge_base_id else None
+        if not knowledge_base_id or (knowledge_base and can_read(user, knowledge_base)):
+            visible.append(document)
+    return [_public_document(document) for document in visible]
+
+
+@app.get("/api/v1/documents/{document_id}/chunks")
+async def chunks(document_id: str):
+    if not db.get_document(document_id):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return db.get_chunks(document_id, include_embedding=False)
+
+
+@app.get("/api/v1/documents/{document_id}/blocks")
+async def blocks(document_id: str):
+    if not db.get_document(document_id):
+        raise HTTPException(status_code=404, detail="Document not found")
+    return db.get_blocks(document_id)
+
+
+async def _ingest_upload(
+    file: UploadFile,
+    chunk_preset_id: str | None,
+    chunk_token_num: int | None,
+    overlapped_percent: int | None,
+    delimiter: str | None,
+    knowledge_base_id: str | None = None,
+    folder_id: str | None = None,
+    relative_path: str | None = None,
+):
+    file_name = Path(file.filename or "document").name
+    suffix = Path(file_name).suffix.lower()
+    if suffix == ".zip":
+        raise HTTPException(status_code=400, detail="ZIP 文件夹请使用知识库的‘上传文件夹’入口")
+    if suffix not in ALLOWED_UPLOADS:
+        raise HTTPException(status_code=400, detail=f"不支持的文件类型：{suffix or 'unknown'}")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="文件内容为空")
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="单文件最大 100 MB")
+    knowledge_base = _knowledge_base_or_404(knowledge_base_id) if knowledge_base_id else None
+    if knowledge_base and knowledge_base["kb_type"] != "local":
+        raise HTTPException(status_code=400, detail="只读连接器不能上传本地文件")
+    kb_config = knowledge_base.get("config", {}) if knowledge_base else {}
+    chunking = kb_config.get("chunking", {})
+    selected_preset = chunking.get("chunk_preset_id", "general") if knowledge_base else (chunk_preset_id or "general")
+    chunk_settings = (
+        {
+            "chunk_token_num": chunking.get("chunk_token_num", 512),
+            "overlapped_percent": chunking.get("overlapped_percent", 10),
+            "delimiter": chunking.get("delimiter", "\\n"),
+        }
+        if knowledge_base
+        else {
+            "chunk_token_num": chunk_token_num if chunk_token_num is not None else 512,
+            "overlapped_percent": overlapped_percent if overlapped_percent is not None else 10,
+            "delimiter": delimiter if delimiter is not None else "\\n",
+        }
+    )
+    if folder_id and (not knowledge_base_id or not db.folder_exists(folder_id, knowledge_base_id)):
+        raise HTTPException(status_code=404, detail="Folder not found")
+    safe_relative = None
+    if relative_path:
+        candidate = PurePosixPath(relative_path.replace("\\", "/"))
+        if candidate.is_absolute() or ".." in candidate.parts:
+            raise HTTPException(status_code=422, detail="文件相对路径无效")
+        file_name = candidate.name or file_name
+        safe_relative = str(candidate.parent) if str(candidate.parent) != "." else None
+    effective_folder_id = folder_id
+    if knowledge_base_id and safe_relative:
+        effective_folder_id = db.ensure_folder_path(knowledge_base_id, safe_relative, folder_id)
+    upload_path = Path(settings.rag_upload_dir) / f"{uuid.uuid4().hex}{suffix}"
+    upload_path.parent.mkdir(parents=True, exist_ok=True)
+    upload_path.write_bytes(content)
+    parser_config = chunk_settings
+    metadata = {"file_size": len(content)}
+    if relative_path:
+        metadata["relative_path"] = relative_path
+    embedding_config = kb_config.get("embedding") if knowledge_base else None
+    parser_adapter = kb_config.get("parser") if knowledge_base else None
+    try:
+        mime_type = file.content_type or mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+        if suffix == ".pdf":
+            return await ingest_pdf(
+                str(upload_path), file_name, selected_preset, parser_config, metadata,
+                knowledge_base_id, effective_folder_id, embedding_config, parser_adapter,
+            )
+        return await ingest_file(
+            str(upload_path), file_name, mime_type, selected_preset, parser_config,
+            {"source_type": suffix[1:], "stored_file": upload_path.name, **metadata},
+            knowledge_base_id, effective_folder_id, embedding_config, parser_adapter,
+        )
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise _provider_error(exc) from exc
+
+
+@app.post("/api/v1/documents/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    chunk_preset_id: str | None = Form(None),
+    chunk_token_num: int | None = Form(None),
+    overlapped_percent: int | None = Form(None),
+    delimiter: str | None = Form(None),
+    knowledge_base_id: str | None = Form(None),
+    folder_id: str | None = Form(None),
+    relative_path: str | None = Form(None),
+):
+    return await _ingest_upload(
+        file, chunk_preset_id, chunk_token_num, overlapped_percent, delimiter,
+        knowledge_base_id, folder_id, relative_path,
+    )
+
+
+@app.post("/api/v1/documents/pdf")
+async def upload_pdf(
+    file: UploadFile = File(...),
+    chunk_preset_id: str | None = Form(None),
+    chunk_token_num: int | None = Form(None),
+    overlapped_percent: int | None = Form(None),
+    delimiter: str | None = Form(None),
+    knowledge_base_id: str | None = Form(None),
+    folder_id: str | None = Form(None),
+    relative_path: str | None = Form(None),
+):
+    if Path(file.filename or "").suffix.lower() != ".pdf":
+        raise HTTPException(status_code=400, detail="Only PDF is supported")
+    return await _ingest_upload(
+        file, chunk_preset_id, chunk_token_num, overlapped_percent, delimiter,
+        knowledge_base_id, folder_id, relative_path,
+    )
+
+
+@app.post("/api/v1/documents/text")
+async def add_text(request: TextDocumentRequest):
+    try:
+        knowledge_base = _knowledge_base_or_404(request.knowledge_base_id) if request.knowledge_base_id else None
+        if knowledge_base and knowledge_base["kb_type"] != "local":
+            raise HTTPException(status_code=400, detail="只读连接器不能上传本地文本")
+        if request.folder_id and (not request.knowledge_base_id or not db.folder_exists(request.folder_id, request.knowledge_base_id)):
+            raise HTTPException(status_code=404, detail="Folder not found")
+        kb_config = knowledge_base.get("config", {}) if knowledge_base else {}
+        chunking = kb_config.get("chunking", {})
+        return await ingest_text(
+            request.file_name,
+            request.text,
+            chunking.get("chunk_preset_id", "general") if knowledge_base else (request.chunk_preset_id or "general"),
+            chunking if knowledge_base else request.chunk_parser_config,
+            request.metadata,
+            request.knowledge_base_id,
+            request.folder_id,
+            kb_config.get("embedding") if knowledge_base else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise _provider_error(exc) from exc
+
+
+@app.get("/api/v1/documents/{document_id}/page/{page_no}/image")
+async def page_image(document_id: str, page_no: int):
+    document = db.get_document(document_id)
+    if not document or document.get("mime_type") != "application/pdf" or not document.get("file_path"):
+        raise HTTPException(status_code=404, detail="PDF not found")
+    try:
+        image = render_pdf_page(document["file_path"], page_no)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(content=image, media_type="image/png")
+
+
+@app.post("/api/v1/retrieve", response_model=RetrieveResponse)
+async def retrieve_api(request: RetrieveRequest):
+    try:
+        knowledge_base = db.get_knowledge_base(str(request.filters.get("knowledge_base_id"))) if request.filters.get("knowledge_base_id") else None
+        if knowledge_base and knowledge_base["kb_type"] == "dify":
+            return await _dify_retrieve(request, knowledge_base)
+        if knowledge_base and knowledge_base["kb_type"] == "notion":
+            return await _notion_retrieve(request, knowledge_base)
+        return await retrieve(request)
+    except (ProviderUnavailable, NotionAPIError, ValueError, httpx.HTTPError) as exc:
+        raise _provider_error(exc) from exc
+
+
+@app.post("/api/v1/debug/retrieve")
+async def debug_retrieve_api(request: RetrieveRequest):
+    try:
+        knowledge_base = db.get_knowledge_base(str(request.filters.get("knowledge_base_id"))) if request.filters.get("knowledge_base_id") else None
+        if knowledge_base and knowledge_base["kb_type"] == "notion":
+            result = await _notion_retrieve(request, knowledge_base)
+            ranked = [
+                {"rank": index, "evidence_id": item.evidence_id, "document_id": item.document_id,
+                 "file_name": item.file_name, "text": item.text, "score": None, "score_type": "not_exposed_by_notion"}
+                for index, item in enumerate(result.evidences, start=1)
+            ]
+            return {
+                "request": request.model_dump(),
+                "pipeline": [
+                    {"stage": "query", "status": "completed", "summary": "Query 已发送至 Notion Search API"},
+                    {"stage": "notion_search", "status": "completed", "summary": f"Notion 返回 {len(ranked)} 条页面；API 不提供 BM25/Vector 分阶段分数"},
+                    {"stage": "final_context", "status": "completed", "summary": f"Final Context {result.usage['context_tokens']} tokens"},
+                ],
+                "stages": {"notion_search": ranked},
+                "bm25_candidates": [], "vector_candidates": [], "fusion_candidates": [], "rerank_candidates": [],
+                "final_evidences": [item.model_dump() for item in result.evidences],
+                "timing": result.timing_ms,
+                "config_snapshot": {"knowledge_base_id": knowledge_base["id"], "provider": "notion",
+                                    "retrieval": knowledge_base.get("config", {}).get("retrieval", {})},
+                "result": result.model_dump(),
+                "evidences": [item.model_dump() for item in result.evidences],
+                "final_context": result.final_context,
+            }
+        if knowledge_base and knowledge_base["kb_type"] == "dify":
+            result = await _dify_retrieve(request, knowledge_base)
+            ranked = [
+                {
+                    "rank": index,
+                    "evidence_id": item.evidence_id,
+                    "chunk_id": item.chunk_id,
+                    "document_id": item.document_id,
+                    "file_name": item.file_name,
+                    "text": item.text,
+                    "score": item.scores.get("fusion"),
+                    "score_type": "dify_external_score",
+                }
+                for index, item in enumerate(result.evidences, start=1)
+            ]
+            return {
+                "request": request.model_dump(),
+                "pipeline": [
+                    {"stage": "query", "status": "completed", "summary": "Query 已发送至 Dify Dataset"},
+                    {"stage": "dify_retrieve", "status": "completed", "summary": f"Dify 返回 {len(ranked)} 条证据；连接器不暴露 BM25/Vector 分阶段名次"},
+                    {"stage": "final_context", "status": "completed", "summary": f"Final Context 约 {result.usage['context_tokens']} tokens"},
+                ],
+                "stages": {"dify_retrieve": ranked},
+                "result": result.model_dump(),
+                "evidences": [item.model_dump() for item in result.evidences],
+                "final_context": result.final_context,
+            }
+        return await retrieve_debug(request)
+    except (ProviderUnavailable, NotionAPIError, ValueError, httpx.HTTPError) as exc:
+        raise _provider_error(exc) from exc
+
+
+@app.post("/api/v1/evaluation/run")
+async def evaluation(request: EvaluationRequest):
+    if bool(request.answer_llm) != bool(request.judge_llm):
+        raise HTTPException(status_code=422, detail="答案生成模型和答案评判模型需要同时配置")
+    cases = []
+    for case in request.cases:
+        retrieval_request = RetrieveRequest(
+            query=case.query,
+            search_mode=request.search_mode,
+            final_top_k=case.top_k,
+            recall_top_k=request.recall_top_k,
+            use_reranker=request.use_reranker,
+            filters=case.filters,
+        )
+        try:
+            knowledge_base = db.get_knowledge_base(str(case.filters.get("knowledge_base_id"))) if case.filters.get("knowledge_base_id") else None
+            if knowledge_base and knowledge_base["kb_type"] == "dify":
+                result = await _dify_retrieve(retrieval_request, knowledge_base)
+            elif knowledge_base and knowledge_base["kb_type"] == "notion":
+                result = await _notion_retrieve(retrieval_request, knowledge_base)
+            else:
+                result = await retrieve(retrieval_request)
+        except (ProviderUnavailable, NotionAPIError, ValueError, httpx.HTTPError) as exc:
+            raise _provider_error(exc) from exc
+        relevant_ids = case.relevant_evidence_ids or [
+            value if value.startswith("EV-") else f"EV-{value}"
+            for value in case.gold_chunk_ids
+        ]
+        relevant = set(relevant_ids)
+        returned = [item.evidence_id for item in result.evidences]
+        retrieved_chunks = [item.model_dump() for item in result.evidences]
+        yuxi_metrics = calculate_retrieval_metrics(
+            result.evidences, relevant_ids, case.top_k
+        )
+        hits = [index for index, evidence_id in enumerate(returned, start=1) if evidence_id in relevant]
+        reciprocal_rank = 1 / hits[0] if hits else 0.0
+        dcg = sum(1 / math.log2(rank + 1) for rank in hits)
+        ideal = sum(1 / math.log2(rank + 1) for rank in range(1, min(len(relevant), case.top_k) + 1))
+        generated_answer = ""
+        answer_metrics = {}
+        if request.answer_llm and case.gold_answer:
+            if retrieved_chunks:
+                context = "\n\n".join(
+                    f"文档 {index + 1}:\n{item.text}"
+                    for index, item in enumerate(result.evidences[:5])
+                    if item.text
+                )
+                answer_prompt = (
+                    "基于以下上下文信息，请回答用户的问题。\n\n"
+                    f"上下文信息：{context}\n\n用户问题：{case.query}\n\n"
+                    "请根据上下文信息准确回答问题。\n\n"
+                    "如果上下文中缺少相关信息，请回答“信息不足，无法回答”。"
+                )
+                judge_prompt = (
+                    "你是一个公正的评判者，请评估AI生成的答案相对于标准答案的准确性。\n\n"
+                    f"问题：{case.query}\n\n标准答案：\n{case.gold_answer}\n\n"
+                    f"AI生成的答案：\n{generated_answer}\n\n"
+                    "请判断AI生成的答案是否在事实层面与标准答案一致。忽略措辞、标点符号或格式上的细微差异。"
+                    "只关注核心事实是否准确包含。\n"
+                    '请只返回 JSON：{"score": 1.0, "reasoning": "简要说明判定理由"}。score 只能是 1.0 或 0.0。'
+                )
+                try:
+                    generated_answer = await complete_chat(
+                        [{"role": "user", "content": answer_prompt}], request.answer_llm
+                    )
+                    judged_text = await complete_chat([{"role": "user", "content": judge_prompt}], request.judge_llm)
+                    judged = json_repair.loads(judged_text)
+                    if not isinstance(judged, dict):
+                        raise ValueError("Judge 响应必须是 JSON 对象")
+                    score = float(judged.get("score", 0.0))
+                    if score not in {0.0, 1.0}:
+                        raise ValueError("Judge 响应的 score 必须为 0.0 或 1.0")
+                    answer_metrics = {"score": score, "reasoning": str(judged.get("reasoning") or "")}
+                except ChatProviderUnavailable as exc:
+                    raise HTTPException(status_code=503, detail=str(exc)) from exc
+                except httpx.HTTPError as exc:
+                    raise HTTPException(status_code=502, detail=f"答案评估模型请求失败：{exc}") from exc
+                except Exception as exc:
+                    raise HTTPException(status_code=502, detail=f"答案评估模型响应无效：{exc}") from exc
+            else:
+                answer_metrics = {"score": 0.0, "reasoning": "未生成答案"}
+        case_metrics = {**yuxi_metrics["yuxi_metrics"], **answer_metrics}
+        cases.append(
+            {
+                "item_index": len(cases),
+                "query": case.query,
+                "returned_evidence_ids": returned,
+                "relevant_evidence_ids": sorted(relevant),
+                "gold_chunk_ids": case.gold_chunk_ids,
+                "gold_answer": case.gold_answer,
+                "generated_answer": generated_answer,
+                "retrieved_chunks": retrieved_chunks,
+                "metrics": case_metrics,
+                "answer_metrics": answer_metrics,
+                "recall_at_k": yuxi_metrics["recall_at_k"],
+                "precision_at_k": yuxi_metrics["precision_at_k"],
+                "yuxi_metrics": yuxi_metrics["yuxi_metrics"],
+                "mrr": reciprocal_rank,
+                "ndcg_at_k": dcg / ideal if ideal else 0.0,
+                "top_k": case.top_k,
+            }
+        )
+    averages = {
+        metric: round(sum(case[metric] for case in cases) / len(cases), 6)
+        for metric in ("recall_at_k", "precision_at_k", "mrr", "ndcg_at_k")
+    }
+    metric_keys = next((case["metrics"].keys() for case in cases if case["metrics"]), ())
+    for metric in metric_keys:
+        values = [case["metrics"][metric] for case in cases if metric in case["metrics"]]
+        if values and all(isinstance(value, (int, float)) for value in values):
+            averages[metric] = round(sum(values) / len(values), 6)
+    judged_scores = [case["metrics"]["score"] for case in cases if "score" in case["metrics"]]
+    if judged_scores:
+        averages["answer_correctness"] = round(sum(judged_scores) / len(judged_scores), 6)
+        averages["overall_score"] = averages["answer_correctness"]
+    elif "recall@10" in averages:
+        averages["overall_score"] = averages["recall@10"]
+    return {
+        "case_count": len(cases),
+        "averages": averages,
+        "cases": cases,
+        "judge": request.judge_llm or "ground-truth evidence IDs; no LLM judge",
+        "answer_llm": request.answer_llm,
+        "judge_llm": request.judge_llm,
+    }
+
+
+@app.get("/api/v1/evidence/{evidence_id}")
+async def evidence(evidence_id: str):
+    chunk_id = evidence_id[3:] if evidence_id.startswith("EV-") else evidence_id
+    item = db.get_chunk(chunk_id)
+    if not item or item.get("document_status") != "indexed":
+        raise HTTPException(status_code=404, detail="Evidence not found")
+    return {
+        "evidence_id": f"EV-{item['id']}",
+        "document_id": item["document_id"],
+        "chunk_id": item["id"],
+        "file_name": item.get("file_name"),
+        "text": item["text"],
+        "token_count": item["token_count"],
+        "source_spans": item["source_spans"],
+        "metadata": item["metadata"],
+    }
+
+
+from .yuxi_compat import router as yuxi_compat_router
+from .provider_api import router as provider_api_router
+from .ocr_api import router as ocr_api_router
+
+app.include_router(yuxi_compat_router)
+app.include_router(provider_api_router)
+app.include_router(ocr_api_router)

@@ -1,0 +1,21 @@
+{
+  "review_fixture_key": "FIXTURE:ZG:PLAN-REVIEW:01",
+  "plan_fixture_key": "FIXTURE:ZG:DISPOSAL:01",
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "approval_id": null,
+  "reviewer_id": "FIXTURE:ZG:PERSON:PLAN-APPROVER-01",
+  "reviewer_display_name": "秭归演示审核员·方案确认",
+  "review_time": "2026-10-15T09:50:00+08:00",
+  "decision": "approved_for_gold_replay",
+  "approved_proposal_fixture_keys": [
+    "FIXTURE:ZG:PROPOSAL:01",
+    "FIXTURE:ZG:PROPOSAL:02",
+    "FIXTURE:ZG:PROPOSAL:03",
+    "FIXTURE:ZG:PROPOSAL:04"
+  ],
+  "comment": "模拟审核同意先落实人员告知、临时防护、巡查监测与技术复核，所有行动仅发生于虚构场景。",
+  "is_simulated": true,
+  "record_phase": "fixture_not_persisted",
+  "dispatch_time_expected": "2026-10-15T10:00:00+08:00",
+  "business_status_after_approval": "approved_tasks_can_be_materialized"
+}

@@ -1,0 +1,24 @@
+{
+  "review_fixture_key": "FIXTURE:ZG:FINAL-REVIEW:01",
+  "approval_id": null,
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "report_fixture_key": "FIXTURE:ZG:REPORT:RETROSPECTIVE:01",
+  "reviewer_id": "FIXTURE:ZG:PERSON:REVIEWER-01",
+  "reviewer_display_name": "秭归演示审核员·复盘审核",
+  "review_time": "2026-10-16T11:00:00+08:00",
+  "decision": "approved_for_gold_replay",
+  "comment": "模拟复盘审核计划：核对四条任务独立复核结果、三类文书和处置时间线后予以通过；只有运行时真正保存审批记录后事件状态才转为completed。",
+  "expected_event_status_after_persisted_approval": "completed",
+  "hazard_cancelled": false,
+  "is_simulated": true,
+  "record_phase": "fixture_not_persisted",
+  "required_task_review_fixture_keys": [
+    "FIXTURE:ZG:TASK-REVIEW:01",
+    "FIXTURE:ZG:TASK-REVIEW:02",
+    "FIXTURE:ZG:TASK-REVIEW:03",
+    "FIXTURE:ZG:TASK-REVIEW:04"
+  ],
+  "required_plan_review_fixture_key": "FIXTURE:ZG:PLAN-REVIEW:01",
+  "expected_report_ready_time": "2026-10-16T10:40:00+08:00",
+  "closure_semantics": "Mock event process complete only; hazard not cancelled, real-world safe status not established"
+}

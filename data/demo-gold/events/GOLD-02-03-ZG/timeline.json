@@ -1,0 +1,198 @@
+{
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "scenario_ids": [
+    "GOLD-02",
+    "GOLD-03"
+  ],
+  "event_timeline": [
+    {
+      "stage": "discovered",
+      "time": "2026-10-15T09:00:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:DISCOVERY:01"
+    },
+    {
+      "stage": "investigated",
+      "time": "2026-10-15T09:35:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:INVESTIGATION:01"
+    },
+    {
+      "stage": "investigation_report_prepared",
+      "time": "2026-10-15T09:38:00+08:00",
+      "status": "reference_document_ready",
+      "entity_key": "FIXTURE:ZG:REPORT:INVESTIGATION:01"
+    },
+    {
+      "stage": "decision_and_disposal_prepared",
+      "time": "2026-10-15T09:40:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:DISPOSAL:01"
+    },
+    {
+      "stage": "plan_review_approved",
+      "time": "2026-10-15T09:50:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:PLAN-REVIEW:01"
+    },
+    {
+      "stage": "tasks_dispatched",
+      "time": "2026-10-15T10:00:00+08:00",
+      "status": "expected_after_runtime_persistence",
+      "entity_key": "FIXTURE:ZG:DISPOSAL:01"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T10:30:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:01:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:01"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-15T10:40:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:01"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T11:30:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:02:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:02"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-15T11:45:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:02"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T13:10:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:03:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T15:00:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:04:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04"
+    },
+    {
+      "stage": "GOLD-03_recovery_observation",
+      "time": "2026-10-16T09:00:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:SERIES:01"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-16T09:15:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:03:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-16T09:40:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:03",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-16T10:15:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:04:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-16T10:30:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:04",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04"
+    },
+    {
+      "stage": "retrospective_report_prepared",
+      "time": "2026-10-16T10:40:00+08:00",
+      "status": "reference_document_ready",
+      "entity_key": "FIXTURE:ZG:REPORT:RETROSPECTIVE:01"
+    },
+    {
+      "stage": "final_report_review_approved",
+      "time": "2026-10-16T11:00:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:FINAL-REVIEW:01"
+    }
+  ],
+  "task_deadlines": [
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:01",
+      "deadline": "2026-10-15T10:30:00+08:00"
+    },
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:02",
+      "deadline": "2026-10-15T12:00:00+08:00"
+    },
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:03",
+      "deadline": "2026-10-16T09:45:00+08:00"
+    },
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:04",
+      "deadline": "2026-10-16T10:15:00+08:00"
+    }
+  ],
+  "feedback_timeline": [
+    {
+      "feedback_fixture_key": "FIXTURE:ZG:FB:01:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:01",
+      "feedback_time": "2026-10-15T10:30:00+08:00"
+    },
+    {
+      "feedback_fixture_key": "FIXTURE:ZG:FB:02:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:02",
+      "feedback_time": "2026-10-15T11:30:00+08:00"
+    },
+    {
+      "feedback_fixture_key": "FIXTURE:ZG:FB:03:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03",
+      "feedback_time": "2026-10-15T13:10:00+08:00"
+    },
+    {
+      "feedback_fixture_key": "FIXTURE:ZG:FB:04:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04",
+      "feedback_time": "2026-10-15T15:00:00+08:00"
+    },
+    {
+      "feedback_fixture_key": "FIXTURE:ZG:FB:03:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03",
+      "feedback_time": "2026-10-16T09:15:00+08:00"
+    },
+    {
+      "feedback_fixture_key": "FIXTURE:ZG:FB:04:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04",
+      "feedback_time": "2026-10-16T10:15:00+08:00"
+    }
+  ],
+  "expected_terminal_transition": {
+    "trigger": "final retrospective report review approved and persisted",
+    "from": "response_in_progress",
+    "to": "completed",
+    "hazard_cancelled": false,
+    "archive_required": false,
+    "fixture_only": true
+  },
+  "plan_review_fixture_key": "FIXTURE:ZG:PLAN-REVIEW:01",
+  "task_review_fixture_keys": [
+    "FIXTURE:ZG:TASK-REVIEW:01",
+    "FIXTURE:ZG:TASK-REVIEW:02",
+    "FIXTURE:ZG:TASK-REVIEW:03",
+    "FIXTURE:ZG:TASK-REVIEW:04"
+  ]
+}

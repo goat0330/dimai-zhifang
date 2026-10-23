@@ -1,0 +1,200 @@
+{
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "stage_id": "GOLD-03",
+  "gold_observations": {
+    "count": 168,
+    "shared_exact_rows_with_GOLD-02": 144,
+    "recovery_append_rows": 24,
+    "series_id": "FIXTURE:ZG:SERIES:01",
+    "is_simulated": true,
+    "rainfall_windows_mm": {
+      "24h": 0.6,
+      "72h": 80.1,
+      "168h": 85.5
+    },
+    "latest_observation": {
+      "observed_at": "2026-10-16T09:00:00+08:00",
+      "hazard_point_id": "420527108005000001",
+      "monitor_point_id": "42052710800500000101",
+      "rainfall_increment_mm": 0.0,
+      "rainfall_increment_mm_unit": "mm",
+      "rainfall_increment_interval_hours": 1,
+      "data_source": "local_gold_fixture:GOLD-03:recovery_append",
+      "is_simulated": true,
+      "displacement_object_id": "42052710800500000101",
+      "reservoir_object_id": "42052710800500000101",
+      "displacement_reservoir_interval_hours": 6,
+      "displacement_mm_unit": "mm",
+      "displacement_rate_mm_per_day_unit": "mm/d",
+      "reservoir_level_m_unit": "m",
+      "displacement_mm": 8.5,
+      "displacement_rate_mm_per_day": 0.1,
+      "reservoir_level_m": 158.6,
+      "reservoir_trend": "falling",
+      "recovery_status": "recovering",
+      "short_term_rainfall_mm": 0.0,
+      "short_term_rainfall_mm_unit": "mm",
+      "observation_id": "FIXTURE:ZG:OBS:20261016T090000+0800",
+      "slope_unit_id": "GOLD-SU-ZIGUI-001",
+      "device_id": "FIXTURE:ZG:DEVICE:01",
+      "source_stage": "GOLD-03-recovery"
+    }
+  },
+  "p6_candidate": {
+    "slope_unit_id": "YCSV2_000660",
+    "mapping_status": "candidate_unverified",
+    "mapping_scope": "gold_demo_query_only",
+    "mapping_source": "按隐患点库存坐标在当前斜坡单元图层做空间候选关联；原坐标系未核实，仅供本次演示链路查询。",
+    "coordinate_crs_status": "UNVERIFIED",
+    "hazard_point_coordinate": {
+      "longitude": 110.8121,
+      "latitude": 30.8718,
+      "source_record_id": "59f2adcea4f04ffab46baaeb9a87065c"
+    },
+    "unit_center": {
+      "longitude": 110.81942332402213,
+      "latitude": 30.86557669006772
+    },
+    "snapshot_id": "ECMWFIFS_20261019T09_a7aca285a5a8",
+    "as_of_local": "2026-10-19T09:00+08:00",
+    "provider": "Open-Meteo",
+    "model": "ecmwf_ifs",
+    "S": {
+      "score": 0.3826554326722173,
+      "grade": "S3"
+    },
+    "H_static": {
+      "score": 0.4748583764325953,
+      "grade": "H3"
+    },
+    "E": {
+      "total": {
+        "score": 0.7698322633469526,
+        "grade": "E4"
+      },
+      "hotspot": {
+        "score": 0.6785042073077225,
+        "grade": "E4"
+      },
+      "population": {
+        "score": 0.7442068445821339,
+        "grade": "E4"
+      },
+      "road": {
+        "score": 0.8082703914941808,
+        "grade": "E5"
+      },
+      "by_asset": {
+        "population": {
+          "score": 0.7442068445821339,
+          "grade": "E4"
+        },
+        "highway": {
+          "score": 0.0,
+          "grade": "E1"
+        },
+        "national_provincial": {
+          "score": 0.8583511353771209,
+          "grade": "E5"
+        },
+        "county_township": {
+          "score": 0.6231241747555211,
+          "grade": "E4"
+        },
+        "village_other": {
+          "score": 0.5102813642313719,
+          "grade": "E3"
+        }
+      }
+    },
+    "V": {
+      "population": {
+        "score": 3.2,
+        "coefficient": 0.64
+      },
+      "highway": {
+        "score": 2.5,
+        "coefficient": 0.5
+      },
+      "national_provincial": {
+        "score": 3.4,
+        "coefficient": 0.6799999999999999
+      },
+      "county_township": {
+        "score": 3.8,
+        "coefficient": 0.76
+      },
+      "village_other": {
+        "score": 4.1,
+        "coefficient": 0.82
+      }
+    },
+    "R_static": {
+      "overall": {
+        "score": 3.68,
+        "grade": "R4"
+      },
+      "by_asset": {
+        "population": {
+          "score": 3.3400000000000003,
+          "grade": "R3"
+        },
+        "highway": {
+          "score": 1.0,
+          "grade": "R1"
+        },
+        "national_provincial": {
+          "score": 3.68,
+          "grade": "R4"
+        },
+        "county_township": {
+          "score": 3.46,
+          "grade": "R4"
+        },
+        "village_other": {
+          "score": 3.2199999999999998,
+          "grade": "R3"
+        }
+      }
+    },
+    "H_dynamic": {
+      "score": 0.27285842690478285,
+      "grade": "H2"
+    },
+    "H_forecast": {
+      "score": 0.4239150935714495,
+      "grade": "H3"
+    },
+    "R_dynamic": {
+      "score": 3.18,
+      "grade": "R3"
+    },
+    "R_forecast": {
+      "score": 3.68,
+      "grade": "R4"
+    },
+    "model_rainfall": {
+      "past24h_mm": 3.9000000000000004,
+      "past72h_mm": 31.1,
+      "past168h_mm": 38.699999999999996,
+      "forecast24h_mm": 39.9,
+      "forecast72h_mm": 48.800000000000004,
+      "rain_grid_id": "ECMWFIFS_30.89631_110.87574",
+      "mapping_distance_km": 6.382225359278558,
+      "provider": "Open-Meteo",
+      "model": "ecmwf_ifs",
+      "historical_type": "MODEL_HISTORICAL",
+      "forecast_type": "MODEL_FORECAST"
+    },
+    "candidate_only": true,
+    "expert_approval_evidenced": false,
+    "official_warning_allowed": false,
+    "is_simulated": false
+  },
+  "interpretation": "Recovery observations are simulated; P6 snapshot is an independent model candidate, not a recovery measurement.",
+  "assessment_status": "gold_recovery_regression_only_not_official_clearance",
+  "is_simulated": true,
+  "reference_kind": "current_p6_query_capture",
+  "reference_time": "2026-10-19T09:00+08:00",
+  "reference_note": "该快照在Gold链路补齐时从当前评价接口读取；不是事件发生时的历史观测。"
+}

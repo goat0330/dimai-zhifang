@@ -1,0 +1,77 @@
+{
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "review_policy": "one independent review per task after the last required feedback; feedback alone is not review",
+  "is_simulated": true,
+  "items": [
+    {
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:01",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_fixture_key": "FIXTURE:ZG:TASK:01",
+      "feedback_fixture_keys": [
+        "FIXTURE:ZG:FB:01:01"
+      ],
+      "reviewer_id": "FIXTURE:ZG:PERSON:TASK-REVIEWER-01",
+      "reviewer_display_name": "秭归演示复核员·任务验收",
+      "review_time": "2026-10-15T10:40:00+08:00",
+      "review_result": "accepted",
+      "review_comment": "模拟住户告知记录齐全，已标注异常期间持续联络要求。",
+      "required_followup_fulfilled": false,
+      "is_simulated": true,
+      "record_phase": "fixture_not_persisted",
+      "runtime_review_id": null
+    },
+    {
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:02",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_fixture_key": "FIXTURE:ZG:TASK:02",
+      "feedback_fixture_keys": [
+        "FIXTURE:ZG:FB:02:01"
+      ],
+      "reviewer_id": "FIXTURE:ZG:PERSON:TASK-REVIEWER-01",
+      "reviewer_display_name": "秭归演示复核员·任务验收",
+      "review_time": "2026-10-15T11:45:00+08:00",
+      "review_result": "accepted",
+      "review_comment": "模拟排水与通行状况已记录，关注区安全提示和再巡查安排明确。",
+      "required_followup_fulfilled": false,
+      "is_simulated": true,
+      "record_phase": "fixture_not_persisted",
+      "runtime_review_id": null
+    },
+    {
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:03",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03",
+      "feedback_fixture_keys": [
+        "FIXTURE:ZG:FB:03:01",
+        "FIXTURE:ZG:FB:03:02"
+      ],
+      "reviewer_id": "FIXTURE:ZG:PERSON:TASK-REVIEWER-01",
+      "reviewer_display_name": "秭归演示复核员·任务验收",
+      "review_time": "2026-10-16T09:40:00+08:00",
+      "review_result": "accepted_with_followup",
+      "review_comment": "GOLD-02初次监测结果后继续观察，GOLD-03恢复数据已按同一事件补充并复核；仅确认模拟短期趋势。",
+      "required_followup_fulfilled": true,
+      "is_simulated": true,
+      "record_phase": "fixture_not_persisted",
+      "runtime_review_id": null
+    },
+    {
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:04",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04",
+      "feedback_fixture_keys": [
+        "FIXTURE:ZG:FB:04:01",
+        "FIXTURE:ZG:FB:04:02"
+      ],
+      "reviewer_id": "FIXTURE:ZG:PERSON:TASK-REVIEWER-01",
+      "reviewer_display_name": "秭归演示复核员·任务验收",
+      "review_time": "2026-10-16T10:30:00+08:00",
+      "review_result": "accepted",
+      "review_comment": "首轮技术意见和恢复期补充意见均已核验，后续巡查建议清晰。",
+      "required_followup_fulfilled": true,
+      "is_simulated": true,
+      "record_phase": "fixture_not_persisted",
+      "runtime_review_id": null
+    }
+  ]
+}

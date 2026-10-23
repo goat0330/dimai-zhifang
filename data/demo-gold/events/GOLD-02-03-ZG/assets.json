@@ -1,0 +1,34 @@
+{
+  "device_id": "FIXTURE:ZG:DEVICE:01",
+  "device_name": "秭归Gold虚拟雨量-位移-库水位组合监测终端",
+  "device_type": "simulated_composite_monitor",
+  "manufacturer": "Gold test harness",
+  "model": "SIM-Rain-Displacement-Reservoir-v1",
+  "monitor_point_id": "42052710800500000101",
+  "hazard_point_id": "420527108005000001",
+  "slope_unit_id": "GOLD-SU-ZIGUI-001",
+  "attributes": {
+    "rainfall_increment": {
+      "unit": "mm",
+      "interval_hours": 1
+    },
+    "displacement": {
+      "unit": "mm",
+      "interval_hours": 6
+    },
+    "displacement_rate": {
+      "unit": "mm/d",
+      "interval_hours": 6
+    },
+    "reservoir_level": {
+      "unit": "m",
+      "interval_hours": 6
+    }
+  },
+  "is_simulated": true,
+  "data_source": "fixture_generated_not_real_IoT",
+  "p6_slope_unit_id": "YCSV2_000660",
+  "p6_mapping_status": "candidate_unverified",
+  "p6_mapping_scope": "gold_demo_query_only",
+  "mapping_source": "按隐患点库存坐标在当前斜坡单元图层做空间候选关联；原坐标系未核实，仅供本次演示链路查询。"
+}

@@ -1,0 +1,188 @@
+[
+  {
+    "feedback_fixture_key": "FIXTURE:ZG:FB:01:01",
+    "feedback_id": null,
+    "task_fixture_key": "FIXTURE:ZG:TASK:01",
+    "task_id": null,
+    "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+    "operator_id": "FIXTURE:ZG:PERSON:TASK-01-OWNER",
+    "operator_display_name": "Gold模拟联络员·ZG-01",
+    "feedback_time": "2026-10-15T10:30:00+08:00",
+    "execution_status": "simulated_action_reported_pending_review",
+    "actual_actions": "向2户6名模拟联系人完成异常情况告知和避险路径说明，确认随时可接收复查通知。",
+    "field_description": "两户均有模拟回执，建立后续监测异常复报联系人。",
+    "image_ids": [
+      "FIXTURE:ZG:IMAGE:01"
+    ],
+    "photo_refs": [
+      "fixtures/tests/gold/yichang/assets/GOLD-03-follow-up-synthetic.png"
+    ],
+    "photo_evidence_scope": "合成场景图仅为示意，不能证明该项任务现实执行；具体Mock行动见关联结构化文本证据",
+    "remaining_issues": [
+      "异常未消除前持续保持联络"
+    ],
+    "review_required": true,
+    "is_simulated": true,
+    "data_source": "local_gold_fixture:GOLD-02:feedback_input",
+    "record_phase": "fixture_not_persisted",
+    "evidence_fixture_keys": [
+      "FIXTURE:ZG:EVIDENCE:TASK:01:01"
+    ],
+    "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:01"
+  },
+  {
+    "feedback_fixture_key": "FIXTURE:ZG:FB:02:01",
+    "feedback_id": null,
+    "task_fixture_key": "FIXTURE:ZG:TASK:02",
+    "task_id": null,
+    "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+    "operator_id": "FIXTURE:ZG:PERSON:TASK-02-OWNER",
+    "operator_display_name": "Gold模拟安全员·ZG-03",
+    "feedback_time": "2026-10-15T11:30:00+08:00",
+    "execution_status": "simulated_action_reported_pending_review",
+    "actual_actions": "模拟现场排水核查发现一处浅沟有树叶堆积，巡查员完成可视化清理演示并布设一处临时通行提示。",
+    "field_description": "模拟便道仍允许专业巡查通行，记录降雨期间需加密观察；没有真实交通管制。",
+    "image_ids": [
+      "FIXTURE:ZG:IMAGE:02"
+    ],
+    "photo_refs": [
+      "fixtures/tests/gold/yichang/assets/GOLD-03-follow-up-synthetic.png"
+    ],
+    "photo_evidence_scope": "合成场景图仅为示意，不能证明该项任务现实执行；具体Mock行动见关联结构化文本证据",
+    "remaining_issues": [
+      "后续降雨注意浅沟再次堵塞"
+    ],
+    "review_required": true,
+    "is_simulated": true,
+    "data_source": "local_gold_fixture:GOLD-02:feedback_input",
+    "record_phase": "fixture_not_persisted",
+    "evidence_fixture_keys": [
+      "FIXTURE:ZG:EVIDENCE:TASK:02:01"
+    ],
+    "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:02"
+  },
+  {
+    "feedback_fixture_key": "FIXTURE:ZG:FB:03:01",
+    "feedback_id": null,
+    "task_fixture_key": "FIXTURE:ZG:TASK:03",
+    "task_id": null,
+    "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+    "operator_id": "FIXTURE:ZG:PERSON:TASK-03-OWNER",
+    "operator_display_name": "Gold模拟监测员·ZG-04",
+    "feedback_time": "2026-10-15T13:10:00+08:00",
+    "execution_status": "simulated_action_reported_pending_review",
+    "actual_actions": "完成GOLD-02首轮模拟监测分析：24小时雨量50.9毫米、位移速率5.1毫米/日、水位159.0米且呈上升态势。",
+    "field_description": "告警期异常线索保留，继续观察24小时恢复段。",
+    "image_ids": [
+      "FIXTURE:ZG:IMAGE:03"
+    ],
+    "photo_refs": [
+      "fixtures/tests/gold/yichang/assets/GOLD-03-follow-up-synthetic.png"
+    ],
+    "photo_evidence_scope": "合成场景图仅为示意，不能证明该项任务现实执行；具体Mock行动见关联结构化文本证据",
+    "remaining_issues": [
+      "需要GOLD-03恢复观测"
+    ],
+    "review_required": true,
+    "is_simulated": true,
+    "data_source": "local_gold_fixture:GOLD-02:feedback_input",
+    "record_phase": "fixture_not_persisted",
+    "evidence_fixture_keys": [
+      "FIXTURE:ZG:EVIDENCE:TASK:03:01"
+    ],
+    "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:03"
+  },
+  {
+    "feedback_fixture_key": "FIXTURE:ZG:FB:04:01",
+    "feedback_id": null,
+    "task_fixture_key": "FIXTURE:ZG:TASK:04",
+    "task_id": null,
+    "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+    "operator_id": "FIXTURE:ZG:PERSON:TASK-04-OWNER",
+    "operator_display_name": "Gold模拟技术员·ZG-05",
+    "feedback_time": "2026-10-15T15:00:00+08:00",
+    "execution_status": "simulated_action_reported_pending_review",
+    "actual_actions": "技术员依据模拟湿润带与监测异常记录提出排水巡查和监测加密建议，暂不安排任何真实工程作业。",
+    "field_description": "技术建议已提交，待恢复段复核监测变化。",
+    "image_ids": [
+      "FIXTURE:ZG:IMAGE:04"
+    ],
+    "photo_refs": [
+      "fixtures/tests/gold/yichang/assets/GOLD-03-follow-up-synthetic.png"
+    ],
+    "photo_evidence_scope": "合成场景图仅为示意，不能证明该项任务现实执行；具体Mock行动见关联结构化文本证据",
+    "remaining_issues": [
+      "需要复查恢复期降雨与坡面状态"
+    ],
+    "review_required": true,
+    "is_simulated": true,
+    "data_source": "local_gold_fixture:GOLD-02:feedback_input",
+    "record_phase": "fixture_not_persisted",
+    "evidence_fixture_keys": [
+      "FIXTURE:ZG:EVIDENCE:TASK:04:01"
+    ],
+    "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:04"
+  },
+  {
+    "feedback_fixture_key": "FIXTURE:ZG:FB:03:02",
+    "feedback_id": null,
+    "task_fixture_key": "FIXTURE:ZG:TASK:03",
+    "task_id": null,
+    "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+    "operator_id": "FIXTURE:ZG:PERSON:TASK-03-OWNER",
+    "operator_display_name": "Gold模拟监测员·ZG-04",
+    "feedback_time": "2026-10-16T09:15:00+08:00",
+    "execution_status": "simulated_followup_reported_pending_review",
+    "actual_actions": "GOLD-03恢复复核：24小时模拟雨量降至0.6毫米、位移速率降至0.1毫米/日、水位158.6米且下降。",
+    "field_description": "恢复趋势在模拟序列中成立，但未证明实际斜坡长期稳定。",
+    "image_ids": [
+      "FIXTURE:ZG:IMAGE:03"
+    ],
+    "photo_refs": [
+      "fixtures/tests/gold/yichang/assets/GOLD-03-follow-up-synthetic.png"
+    ],
+    "photo_evidence_scope": "合成场景图仅为示意，不能证明该项任务现实执行；具体Mock行动见关联结构化文本证据",
+    "remaining_issues": [
+      "后续异常需再次触发监测分析"
+    ],
+    "review_required": true,
+    "is_simulated": true,
+    "data_source": "local_gold_fixture:GOLD-03:feedback_input",
+    "record_phase": "fixture_not_persisted",
+    "evidence_fixture_keys": [
+      "FIXTURE:ZG:EVIDENCE:TASK:03:02"
+    ],
+    "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:03"
+  },
+  {
+    "feedback_fixture_key": "FIXTURE:ZG:FB:04:02",
+    "feedback_id": null,
+    "task_fixture_key": "FIXTURE:ZG:TASK:04",
+    "task_id": null,
+    "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+    "operator_id": "FIXTURE:ZG:PERSON:TASK-04-OWNER",
+    "operator_display_name": "Gold模拟技术员·ZG-05",
+    "feedback_time": "2026-10-16T10:15:00+08:00",
+    "execution_status": "simulated_followup_reported_pending_review",
+    "actual_actions": "恢复阶段复核模拟浅沟通畅、无新增显著裂缝，技术意见调整为持续监测与周期巡查。",
+    "field_description": "建议维持关注对象管理；模拟短期措施已落实，未认定隐患消除。",
+    "image_ids": [
+      "FIXTURE:ZG:IMAGE:04"
+    ],
+    "photo_refs": [
+      "fixtures/tests/gold/yichang/assets/GOLD-03-follow-up-synthetic.png"
+    ],
+    "photo_evidence_scope": "合成场景图仅为示意，不能证明该项任务现实执行；具体Mock行动见关联结构化文本证据",
+    "remaining_issues": [
+      "真实地灾风险仍需专业核查"
+    ],
+    "review_required": true,
+    "is_simulated": true,
+    "data_source": "local_gold_fixture:GOLD-03:feedback_input",
+    "record_phase": "fixture_not_persisted",
+    "evidence_fixture_keys": [
+      "FIXTURE:ZG:EVIDENCE:TASK:04:02"
+    ],
+    "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:04"
+  }
+]

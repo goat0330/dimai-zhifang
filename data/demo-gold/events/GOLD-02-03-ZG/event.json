@@ -1,0 +1,194 @@
+{
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "runtime_event_id": null,
+  "event_id_semantics": "stable fixture key; persist/reuse one runtime event on execution",
+  "scenario_ids": [
+    "GOLD-02",
+    "GOLD-03"
+  ],
+  "discovery_id": "FIXTURE:ZG:DISCOVERY:01",
+  "alarm_id": "FIXTURE:ZG:ALARM:01",
+  "event_type": "monitoring_dynamic_anomaly",
+  "hazard_point": {
+    "id": "420527108005000001",
+    "name": "白果园不稳定斜坡（滑坡）"
+  },
+  "monitor_point_id": "42052710800500000101",
+  "slope_unit_id": "YCSV2_000660",
+  "slope_unit_mapping_status": "candidate_unverified",
+  "spatial_display": {
+    "longitude": 110.8121,
+    "latitude": 30.8718,
+    "coordinate_crs": "EPSG:4326",
+    "coordinate_crs_status": "UNVERIFIED",
+    "is_synthetic": false,
+    "source_record_id": "59f2adcea4f04ffab46baaeb9a87065c",
+    "purpose": "隐患点库存坐标候选展示，不代表现场核准坐标或监测设备位置"
+  },
+  "status_in_fixture": "response_in_progress",
+  "expected_status_after_final_report_review": "completed",
+  "event_completion_rule": "Only approval of the final retrospective report completes this mock event.",
+  "hazard_cancelled": false,
+  "hazard_writeoff_requested": false,
+  "archive_required_for_event_completion": false,
+  "is_simulated": true,
+  "record_phase": "fixture_not_persisted",
+  "timeline": [
+    {
+      "stage": "discovered",
+      "time": "2026-10-15T09:00:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:DISCOVERY:01"
+    },
+    {
+      "stage": "investigated",
+      "time": "2026-10-15T09:35:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:INVESTIGATION:01"
+    },
+    {
+      "stage": "investigation_report_prepared",
+      "time": "2026-10-15T09:38:00+08:00",
+      "status": "reference_document_ready",
+      "entity_key": "FIXTURE:ZG:REPORT:INVESTIGATION:01"
+    },
+    {
+      "stage": "decision_and_disposal_prepared",
+      "time": "2026-10-15T09:40:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:DISPOSAL:01"
+    },
+    {
+      "stage": "plan_review_approved",
+      "time": "2026-10-15T09:50:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:PLAN-REVIEW:01"
+    },
+    {
+      "stage": "tasks_dispatched",
+      "time": "2026-10-15T10:00:00+08:00",
+      "status": "expected_after_runtime_persistence",
+      "entity_key": "FIXTURE:ZG:DISPOSAL:01"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T10:30:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:01:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:01"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-15T10:40:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:01"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T11:30:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:02:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:02"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-15T11:45:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:02"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T13:10:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:03:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-15T15:00:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:04:01",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04"
+    },
+    {
+      "stage": "GOLD-03_recovery_observation",
+      "time": "2026-10-16T09:00:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:SERIES:01"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-16T09:15:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:03:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-16T09:40:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:03",
+      "task_fixture_key": "FIXTURE:ZG:TASK:03"
+    },
+    {
+      "stage": "task_feedback",
+      "time": "2026-10-16T10:15:00+08:00",
+      "status": "fixture_input",
+      "entity_key": "FIXTURE:ZG:FB:04:02",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04"
+    },
+    {
+      "stage": "task_review_accepted",
+      "time": "2026-10-16T10:30:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:TASK-REVIEW:04",
+      "task_fixture_key": "FIXTURE:ZG:TASK:04"
+    },
+    {
+      "stage": "retrospective_report_prepared",
+      "time": "2026-10-16T10:40:00+08:00",
+      "status": "reference_document_ready",
+      "entity_key": "FIXTURE:ZG:REPORT:RETROSPECTIVE:01"
+    },
+    {
+      "stage": "final_report_review_approved",
+      "time": "2026-10-16T11:00:00+08:00",
+      "status": "expected_after_runtime_review",
+      "entity_key": "FIXTURE:ZG:FINAL-REVIEW:01"
+    }
+  ],
+  "event_time": "2026-10-15T09:00:00+08:00",
+  "disaster_type": "不稳定斜坡监测异常（Gold模拟）",
+  "location_description": "宜昌市秭归县白果园不稳定斜坡附近（文字锚点；现场GPS未核准）",
+  "participant_fixture_ids": [
+    "FIXTURE:ZG:PERSON:TASK-01-OWNER",
+    "FIXTURE:ZG:PERSON:TASK-02-OWNER",
+    "FIXTURE:ZG:PERSON:TASK-03-OWNER",
+    "FIXTURE:ZG:PERSON:TASK-04-OWNER",
+    "FIXTURE:ZG:PERSON:TASK-01-CO01",
+    "FIXTURE:ZG:PERSON:TASK-02-CO01",
+    "FIXTURE:ZG:PERSON:TASK-03-CO01",
+    "FIXTURE:ZG:PERSON:TASK-04-CO01",
+    "FIXTURE:ZG:PERSON:INV-01",
+    "FIXTURE:ZG:PERSON:INV-02",
+    "FIXTURE:ZG:PERSON:REVIEWER-01",
+    "FIXTURE:ZG:PERSON:PLAN-APPROVER-01",
+    "FIXTURE:ZG:PERSON:TASK-REVIEWER-01"
+  ],
+  "display_name": "秭归｜监测异常触发的斜坡核查与恢复复核",
+  "event_category": "模拟设备异常",
+  "event_lifecycle_status_expected": "completed_after_review_persisted",
+  "mock_business_summary": "虚拟组合监测终端雨量增大、位移速率抬升触发Gold异常规则，值班人员派发模拟现场核查；这不是地灾正式预警信号。",
+  "final_report_review_fixture_key": "FIXTURE:ZG:FINAL-REVIEW:01",
+  "p6_mapping": {
+    "p6_slope_unit_id": "YCSV2_000660",
+    "mapping_status": "candidate_unverified",
+    "mapping_scope": "gold_demo_query_only",
+    "source": "按隐患点库存坐标在当前斜坡单元图层做空间候选关联；原坐标系未核实，仅供本次演示链路查询。",
+    "coordinate_crs_status": "UNVERIFIED",
+    "expert_approval_evidenced": false,
+    "official_warning_allowed": false
+  }
+}

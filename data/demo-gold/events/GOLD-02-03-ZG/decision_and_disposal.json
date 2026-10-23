@@ -1,0 +1,190 @@
+{
+  "decision_fixture_key": "FIXTURE:ZG:DECISION:01",
+  "decision_id": null,
+  "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+  "decision_status": "fixture_prepared_not_executed",
+  "execution_engine": "not_run",
+  "dify_app_id": null,
+  "dify_run_id": null,
+  "risk_snapshot_refs": [
+    "stages/GOLD-02/risk_snapshot_reference.json",
+    "stages/GOLD-03/risk_snapshot_reference.json"
+  ],
+  "summary": "模拟综合研判：模拟雨量/位移异常和现场湿润迹象支持启动强化巡查、临时告知与排水核查；正式稳定性判定仍需真实设备和专业调查。",
+  "risk_interpretation": {
+    "static_dynamic_separated": true,
+    "formal_risk_grade": null,
+    "professional_model_result": "P6候选筛查；模型与时片见risk_snapshot.json",
+    "expert_approval_evidenced": false,
+    "official_warning_allowed": false,
+    "is_simulated": true
+  },
+  "evidence_refs": [
+    "events/GOLD-02-03-ZG/stages/GOLD-02/alarm_and_field.json",
+    "stages/GOLD-02/risk_snapshot_reference.json",
+    "stages/GOLD-03/risk_snapshot_reference.json"
+  ],
+  "missing_fields": [
+    "真实设备校准",
+    "真实雨量站数据",
+    "现场GPS核验",
+    "正式预警授权"
+  ],
+  "disposal_plan_fixture_key": "FIXTURE:ZG:DISPOSAL:01",
+  "proposals": [
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:01",
+      "proposal_fixture_key": "FIXTURE:ZG:PROPOSAL:01",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_id": null,
+      "proposal_id": null,
+      "decision_id": null,
+      "approval_id": null,
+      "action_type": "people_protection",
+      "title": "监测告警核实与模拟住户告知",
+      "task_content": "对模拟2户6人开展防灾告知，传达监测异常期间避开坡脚及低洼积水点的建议，确认模拟联系人和巡查责任。",
+      "target_location": "演示斜坡附近2户模拟住户",
+      "department": "秭归演示联络组（模拟）",
+      "responsible_person": "Gold模拟联络员·ZG-01",
+      "co_responsible_persons": [
+        "Gold模拟记录员·ZG-02"
+      ],
+      "deadline": "2026-10-15T10:30:00+08:00",
+      "resources": "告警简报、住户联络表、风险提示单",
+      "acceptance_criteria": "2户模拟对象有告知记录，明确异常持续期回访安排",
+      "measure_categories": [
+        "人员安置",
+        "宣传告知"
+      ],
+      "status_before_execution": "proposal_pending_mock_approval",
+      "expected_status_after_feedback": "review_accepted_after_all_required_feedbacks",
+      "is_simulated": true,
+      "responsible_person_id": "FIXTURE:ZG:PERSON:TASK-01-OWNER",
+      "co_responsible_person_ids": [
+        "FIXTURE:ZG:PERSON:TASK-01-CO01"
+      ],
+      "task_origin": "approved_disposal_plan_proposal",
+      "requires_independent_review": true,
+      "dispatch_time_expected": "2026-10-15T10:00:00+08:00",
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:01",
+      "mock_business_action": true
+    },
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:02",
+      "proposal_fixture_key": "FIXTURE:ZG:PROPOSAL:02",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_id": null,
+      "proposal_id": null,
+      "decision_id": null,
+      "approval_id": null,
+      "action_type": "warning_control",
+      "title": "现场径流与巡查通行条件核查",
+      "task_content": "核对坡面排水沟、浅表径流与约60米巡查便道状态；在模拟关注区设置临时提示和巡查关注点。",
+      "target_location": "演示排水沟与便道约60米关注区域",
+      "department": "秭归演示安全组（模拟）",
+      "responsible_person": "Gold模拟安全员·ZG-03",
+      "co_responsible_persons": [
+        "Gold模拟调查员·ZG-02"
+      ],
+      "deadline": "2026-10-15T12:00:00+08:00",
+      "resources": "现场记录表、巡查路线图、模拟警示标识",
+      "acceptance_criteria": "形成排水状态、通行提示、警示点及隐患跟踪记录",
+      "measure_categories": [
+        "警示防护",
+        "交通管制"
+      ],
+      "status_before_execution": "proposal_pending_mock_approval",
+      "expected_status_after_feedback": "review_accepted_after_all_required_feedbacks",
+      "is_simulated": true,
+      "responsible_person_id": "FIXTURE:ZG:PERSON:TASK-02-OWNER",
+      "co_responsible_person_ids": [
+        "FIXTURE:ZG:PERSON:TASK-02-CO01"
+      ],
+      "task_origin": "approved_disposal_plan_proposal",
+      "requires_independent_review": true,
+      "dispatch_time_expected": "2026-10-15T10:00:00+08:00",
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:02",
+      "mock_business_action": true
+    },
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:03",
+      "proposal_fixture_key": "FIXTURE:ZG:PROPOSAL:03",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_id": null,
+      "proposal_id": null,
+      "decision_id": null,
+      "approval_id": null,
+      "action_type": "monitoring_patrol",
+      "title": "加密监测与恢复阶段比对",
+      "task_content": "跟踪同一虚拟设备和监测点的降雨、位移速率、库水位，GOLD-03追加恢复阶段数据并形成两时段对比分析。",
+      "target_location": "模拟设备FIXTURE:ZG:DEVICE:01及白果园监测点",
+      "department": "秭归演示监测组（模拟）",
+      "responsible_person": "Gold模拟监测员·ZG-04",
+      "co_responsible_persons": [
+        "Gold模拟复核员·ZG-R1"
+      ],
+      "deadline": "2026-10-16T09:45:00+08:00",
+      "resources": "GOLD-02/03连续观测曲线、巡查表、异常规则说明",
+      "acceptance_criteria": "核对GOLD-02/03共享144小时记录一致，给出异常和恢复的模拟量化对照",
+      "measure_categories": [
+        "监测巡查（群测群防）",
+        "排危除险"
+      ],
+      "status_before_execution": "proposal_pending_mock_approval",
+      "expected_status_after_feedback": "review_accepted_after_all_required_feedbacks",
+      "is_simulated": true,
+      "responsible_person_id": "FIXTURE:ZG:PERSON:TASK-03-OWNER",
+      "co_responsible_person_ids": [
+        "FIXTURE:ZG:PERSON:TASK-03-CO01"
+      ],
+      "task_origin": "approved_disposal_plan_proposal",
+      "requires_independent_review": true,
+      "dispatch_time_expected": "2026-10-15T10:00:00+08:00",
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:03",
+      "mock_business_action": true
+    },
+    {
+      "task_fixture_key": "FIXTURE:ZG:TASK:04",
+      "proposal_fixture_key": "FIXTURE:ZG:PROPOSAL:04",
+      "event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "task_id": null,
+      "proposal_id": null,
+      "decision_id": null,
+      "approval_id": null,
+      "action_type": "technical_assessment",
+      "title": "坡面排水与专业处置措施复核",
+      "task_content": "依据模拟现场湿润带、排水浅沟及监测走势研判是否需要持续巡查或进一步专业治理，提出保留临时安全提示的技术建议。",
+      "target_location": "演示坡面、浅沟与关联斜坡单元候选范围",
+      "department": "秭归演示技术组（模拟）",
+      "responsible_person": "Gold模拟技术员·ZG-05",
+      "co_responsible_persons": [
+        "Gold模拟安全员·ZG-03"
+      ],
+      "deadline": "2026-10-16T10:15:00+08:00",
+      "resources": "现场核查单、动态P6候选时片、模拟监测曲线",
+      "acceptance_criteria": "形成前期与恢复期两次技术意见，明确继续观测的理由及正式工程建议待核验事项",
+      "measure_categories": [
+        "工程治理",
+        "其他建议"
+      ],
+      "status_before_execution": "proposal_pending_mock_approval",
+      "expected_status_after_feedback": "review_accepted_after_all_required_feedbacks",
+      "is_simulated": true,
+      "responsible_person_id": "FIXTURE:ZG:PERSON:TASK-04-OWNER",
+      "co_responsible_person_ids": [
+        "FIXTURE:ZG:PERSON:TASK-04-CO01"
+      ],
+      "task_origin": "approved_disposal_plan_proposal",
+      "requires_independent_review": true,
+      "dispatch_time_expected": "2026-10-15T10:00:00+08:00",
+      "review_fixture_key": "FIXTURE:ZG:TASK-REVIEW:04",
+      "mock_business_action": true
+    }
+  ],
+  "recommended_measures_scope": "由成熟处置意见书八类措施中选择四组适用行动；每项建议单独成任务，通过审核后派发。",
+  "mock_risk_narrative": "当前空间候选关联为YCSV2_000660，坐标系仍待核实；运行时以当前评价接口结果为准。",
+  "plan_review_fixture_key": "FIXTURE:ZG:PLAN-REVIEW:01",
+  "disposal_plan_status": "pending_mock_review_as_fixture",
+  "task_proposal_count": 4,
+  "is_simulated_case_narrative": true
+}

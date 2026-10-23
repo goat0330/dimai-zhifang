@@ -1,0 +1,166 @@
+{
+  "schema": "GeoGuardDualEventGoldRelationships/v1.1",
+  "runtime_ids_are_null_in_fixture": true,
+  "events": [
+    {
+      "fixture_event_id": "FIXTURE:GOLD-01:WUFENG:20261015",
+      "scenario_ids": [
+        "GOLD-01"
+      ],
+      "discovery_id": "FIXTURE:WF:DISCOVERY:01",
+      "alarm_id": null,
+      "hazard_point_id": "420529101002020002",
+      "p6_slope_unit_id": "YCSU_00145435",
+      "task_fixture_keys": [
+        "FIXTURE:WF:TASK:01",
+        "FIXTURE:WF:TASK:02",
+        "FIXTURE:WF:TASK:03",
+        "FIXTURE:WF:TASK:04"
+      ],
+      "feedback_fixture_keys": [
+        "FIXTURE:WF:FB:01:01",
+        "FIXTURE:WF:FB:02:01",
+        "FIXTURE:WF:FB:03:01",
+        "FIXTURE:WF:FB:04:01",
+        "FIXTURE:WF:FB:03:02"
+      ],
+      "report_fixture_keys": [
+        "FIXTURE:WF:REPORT:INVESTIGATION:01",
+        "FIXTURE:WF:REPORT:DISPOSAL:01",
+        "FIXTURE:WF:REPORT:RETROSPECTIVE:01"
+      ],
+      "plan_review_fixture_key": "FIXTURE:WF:PLAN-REVIEW:01",
+      "task_review_fixture_keys": [
+        "FIXTURE:WF:TASK-REVIEW:01",
+        "FIXTURE:WF:TASK-REVIEW:02",
+        "FIXTURE:WF:TASK-REVIEW:03",
+        "FIXTURE:WF:TASK-REVIEW:04"
+      ],
+      "mock_case_facts_path": "events/GOLD-01-WF/mock_business_facts.json",
+      "task_feedback_cardinality": "4 independent tasks; 1+ feedback each; independent review for every task"
+    },
+    {
+      "fixture_event_id": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "scenario_ids": [
+        "GOLD-02",
+        "GOLD-03"
+      ],
+      "discovery_id": "FIXTURE:ZG:DISCOVERY:01",
+      "alarm_id": "FIXTURE:ZG:ALARM:01",
+      "hazard_point_id": "420527108005000001",
+      "monitor_point_id": "42052710800500000101",
+      "device_id": "FIXTURE:ZG:DEVICE:01",
+      "monitoring_series_id": "FIXTURE:ZG:SERIES:01",
+      "p6_slope_unit_id": "YCSV2_000660",
+      "task_fixture_keys": [
+        "FIXTURE:ZG:TASK:01",
+        "FIXTURE:ZG:TASK:02",
+        "FIXTURE:ZG:TASK:03",
+        "FIXTURE:ZG:TASK:04"
+      ],
+      "feedback_fixture_keys": [
+        "FIXTURE:ZG:FB:01:01",
+        "FIXTURE:ZG:FB:02:01",
+        "FIXTURE:ZG:FB:03:01",
+        "FIXTURE:ZG:FB:04:01",
+        "FIXTURE:ZG:FB:03:02",
+        "FIXTURE:ZG:FB:04:02"
+      ],
+      "report_fixture_keys": [
+        "FIXTURE:ZG:REPORT:INVESTIGATION:01",
+        "FIXTURE:ZG:REPORT:DISPOSAL:01",
+        "FIXTURE:ZG:REPORT:RETROSPECTIVE:01"
+      ],
+      "shared_with_GOLD-02": [
+        "runtime event",
+        "tasks",
+        "assignees",
+        "initial 144h observations"
+      ],
+      "plan_review_fixture_key": "FIXTURE:ZG:PLAN-REVIEW:01",
+      "task_review_fixture_keys": [
+        "FIXTURE:ZG:TASK-REVIEW:01",
+        "FIXTURE:ZG:TASK-REVIEW:02",
+        "FIXTURE:ZG:TASK-REVIEW:03",
+        "FIXTURE:ZG:TASK-REVIEW:04"
+      ],
+      "mock_case_facts_path": "events/GOLD-02-03-ZG/mock_business_facts.json",
+      "task_feedback_cardinality": "4 independent tasks; 1+ feedback each; independent review for every task",
+      "p6_mapping_status": "candidate_unverified",
+      "p6_mapping_scope": "gold_demo_query_only"
+    }
+  ],
+  "relations": [
+    {
+      "from": "FIXTURE:WF:DISCOVERY:01",
+      "to": "FIXTURE:GOLD-01:WUFENG:20261015",
+      "type": "discovery_of"
+    },
+    {
+      "from": "FIXTURE:ZG:ALARM:01",
+      "to": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "type": "alarm_for"
+    },
+    {
+      "from": "GOLD-02",
+      "to": "GOLD-03",
+      "type": "same_event_recovery_stage"
+    },
+    {
+      "from": "FIXTURE:ZG:SERIES:01",
+      "to": "GOLD-02/GOLD-03",
+      "type": "continuous_series"
+    },
+    {
+      "from": "FIXTURE:WF:PLAN-REVIEW:01",
+      "to": "FIXTURE:GOLD-01:WUFENG:20261015",
+      "type": "plan_approved_before_task_dispatch_fixture"
+    },
+    {
+      "from": "FIXTURE:WF:TASK-REVIEW:01",
+      "to": "FIXTURE:GOLD-01:WUFENG:20261015",
+      "type": "task_review_for_event_fixture"
+    },
+    {
+      "from": "FIXTURE:WF:TASK-REVIEW:02",
+      "to": "FIXTURE:GOLD-01:WUFENG:20261015",
+      "type": "task_review_for_event_fixture"
+    },
+    {
+      "from": "FIXTURE:WF:TASK-REVIEW:03",
+      "to": "FIXTURE:GOLD-01:WUFENG:20261015",
+      "type": "task_review_for_event_fixture"
+    },
+    {
+      "from": "FIXTURE:WF:TASK-REVIEW:04",
+      "to": "FIXTURE:GOLD-01:WUFENG:20261015",
+      "type": "task_review_for_event_fixture"
+    },
+    {
+      "from": "FIXTURE:ZG:PLAN-REVIEW:01",
+      "to": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "type": "plan_approved_before_task_dispatch_fixture"
+    },
+    {
+      "from": "FIXTURE:ZG:TASK-REVIEW:01",
+      "to": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "type": "task_review_for_event_fixture"
+    },
+    {
+      "from": "FIXTURE:ZG:TASK-REVIEW:02",
+      "to": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "type": "task_review_for_event_fixture"
+    },
+    {
+      "from": "FIXTURE:ZG:TASK-REVIEW:03",
+      "to": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "type": "task_review_for_event_fixture"
+    },
+    {
+      "from": "FIXTURE:ZG:TASK-REVIEW:04",
+      "to": "FIXTURE:GOLD-02-03:ZIGUI:20261015",
+      "type": "task_review_for_event_fixture"
+    }
+  ],
+  "mock_fact_policy": "fixture keys are stable; runtime business IDs are generated by the called services and must be captured in Trace"
+}
