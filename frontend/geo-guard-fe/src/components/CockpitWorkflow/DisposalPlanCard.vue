@@ -12,9 +12,9 @@
       <div><span>斜坡单元</span><strong>{{ slopeUnitId || '待关联' }}</strong></div>
       <div><span>处置任务</span><strong>8 个责任人任务位</strong></div>
     </div>
-    <p>A4 结构化处置建议输出待接口联调。分项措施、责任部门、负责人、执行期限与验收要求先在任务派发页留位。</p>
-    <button type="button" @click="onApprove">模拟审核通过，进入任务派发</button>
-    <small>本机演示审核，不写入后端意见书或审批记录。</small>
+    <p>处置建议结合风险等级、斜坡单元与现场信息整理；责任部门、责任人、执行期限及验收标准需在审核时确认。</p>
+    <button type="button" @click="onApprove">进入任务派发</button>
+    <small>当前操作仅打开任务派发页面，方案审核结果需在协同处置中心确认并保存。</small>
   </article>
 </template>
 

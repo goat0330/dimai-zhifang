@@ -23,10 +23,10 @@
             </div>
             <el-form-item v-if="form.parser.engine === 'mineru_official'" label="MinerU Official API Key">
               <el-input v-model="form.parser.api_key" type="password" show-password autocomplete="new-password" :placeholder="parserKeySet ? '知识库已有密钥；留空保持不变' : '填写 MinerU API Key'" />
-              <small>也可通过 MINERU_API_KEY 环境变量配置；知识库密钥保存在本地 SQLite，当前不加密。</small>
+              <small>也可通过 MINERU_API_KEY 环境变量配置；知识库密钥保存在本地 SQLite，当前未加密。</small>
             </el-form-item>
-            <el-button plain :loading="testingParser" @click="parserFileInput?.click()">选 PDF 实测解析</el-button>
-            <p class="readonly-note">引擎清单与 Yuxi Parser 同步；服务型 OCR 的地址和凭据可在嵌入的 Yuxi「系统设置 → OCR」中配置。实测会使用当前选择的引擎，不可用时明确报错。</p>
+            <el-button plain :loading="testingParser" @click="parserFileInput?.click()">测试 PDF 解析</el-button>
+            <p class="readonly-note">服务型 OCR 的地址和凭据可在当前部署的 OCR 服务设置中配置。测试将使用当前选择的解析服务，不可用时会提示原因。</p>
             <div class="settings-section-heading">
               <div class="subheading">Embedding 模型</div>
               <el-button link type="primary" @click="providerManagerVisible = true">管理供应商与模型</el-button>
@@ -47,14 +47,14 @@
             </div>
             <el-form-item label="API Key">
               <el-input v-model="form.embedding.api_key" type="password" show-password autocomplete="new-password" :placeholder="embeddingKeySet ? '知识库已有密钥；留空保持不变' : '留空使用供应商密钥，或输入本知识库专用 Key'" />
-              <small>供应商 Key 保存在本地 SQLite（当前不加密）且接口不回传；适用于本机开发。此处填写的 Key 仅覆盖当前知识库。</small>
+              <small>供应商 Key 保存在本地 SQLite（当前未加密）且接口不回传；此处填写的 Key 仅覆盖当前知识库。</small>
             </el-form-item>
-            <el-button plain :loading="testingEmbedding" @click="testEmbedding">实测 Embedding API</el-button>
+            <el-button plain :loading="testingEmbedding" @click="testEmbedding">测试 Embedding 服务</el-button>
             <p v-if="embeddingResult" class="readonly-note">{{ embeddingResult.provider }} · {{ embeddingResult.model }} · {{ embeddingResult.dimensions }} 维 · {{ embeddingResult.latency_ms }} ms</p>
             <div class="two-columns">
               <el-form-item label="分块策略">
                 <el-select v-model="form.chunking.chunk_preset_id">
-                  <el-option v-for="preset in chunkPresets" :key="preset.value" :label="preset.label + (preset.experimental ? '（实验）' : '')" :value="preset.value" />
+                <el-option v-for="preset in chunkPresets" :key="preset.value" :label="preset.label" :value="preset.value" />
                 </el-select>
               </el-form-item>
               <el-form-item label="Chunk Token 数（64–4096）"><el-input-number v-model="form.chunking.chunk_token_num" :min="64" :max="4096" :step="64" /></el-form-item>
@@ -63,7 +63,7 @@
               <el-form-item label="Overlap（0–80%）"><el-input-number v-model="form.chunking.overlapped_percent" :min="0" :max="80" /></el-form-item>
               <el-form-item label="分隔符"><el-input v-model="form.chunking.delimiter" placeholder="换行符" /></el-form-item>
             </div>
-            <p class="readonly-note">分块策略由迁入的 Yuxi Parser 在本地执行；Semantic 策略会使用上方所选 Embedding API 计算段落相似度，不调用 Chat 模型。</p>
+            <p class="readonly-note">分块策略由 geo_rag 知识库服务执行；语义分块使用上方所选 Embedding 服务计算段落相似度。</p>
             <div class="subheading">Reranker</div>
             <el-form-item label="Reranker 模型库">
               <ProviderModelSelect v-model="form.reranker.model" model-type="rerank" :refresh-key="modelProviderRefreshKey" />
@@ -73,7 +73,7 @@
               <el-form-item label="协议"><el-select v-model="form.reranker.protocol"><el-option label="OpenAI-like" value="openai" /><el-option label="DashScope" value="dashscope" /></el-select></el-form-item>
             </div>
             <el-form-item label="Reranker API Key"><el-input v-model="form.reranker.api_key" type="password" show-password autocomplete="new-password" :placeholder="rerankerKeySet ? '知识库已有密钥；留空保持不变' : '留空使用供应商密钥，或输入本知识库专用 Key'" /></el-form-item>
-            <el-button plain :loading="testingReranker" @click="testReranker">实测 Reranker API</el-button>
+            <el-button plain :loading="testingReranker" @click="testReranker">测试 Reranker 服务</el-button>
             <p v-if="rerankerResult" class="readonly-note">{{ rerankerResult.provider }} · {{ rerankerResult.model }} · {{ rerankerResult.document_count }} 篇输入 · {{ rerankerResult.scores?.length }} 个对齐分数 · {{ rerankerResult.latency_ms }} ms</p>
           </template>
           <template v-else-if="knowledgeBase.kb_type === 'dify'">
@@ -121,7 +121,7 @@
       </el-tab-pane>
 
       <el-tab-pane label="权限配置" name="permissions">
-        <div class="permission-note"><el-icon><Lock /></el-icon><div><b>本机学习工作台</b><p>当前 RAG Studio 使用本地 SQLite 与本地文件目录，未配置用户/部门权限系统。</p></div></div>
+        <div class="permission-note"><el-icon><Lock /></el-icon><div><b>知识库服务权限</b><p>geo_rag 使用本地 SQLite 与文件目录，当前未配置用户或部门级权限，请在受控网络和管理员账号下使用。</p></div></div>
       </el-tab-pane>
     </el-tabs>
 

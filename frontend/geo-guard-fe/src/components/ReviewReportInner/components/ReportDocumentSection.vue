@@ -15,28 +15,17 @@
           {{ event.title || '秭归市事件' }}
         </h1>
         <div class="tags-group">
-          <template v-if="demoPresentation">
-            <span class="tag-badge tag-disaster">{{ event.disasterType || '滑坡险情' }}</span>
-            <span class="tag-badge tag-scale">{{ event.scale || '监测处置' }}</span>
-            <span class="tag-badge tag-status"><i class="status-dot"></i><span>报告预览</span></span>
-          </template>
-          <template v-else>
-            <span class="tag-badge tag-disaster">{{ event.disasterType || '滑坡' }}</span>
-            <span class="tag-badge tag-scale">{{ event.scale || '小型' }}</span>
-            <span class="tag-badge tag-mutation">{{ event.mutationType || '新生突发' }}</span>
-            <span class="tag-badge tag-status"><i class="status-dot"></i><span>已生成</span></span>
-          </template>
+          <span class="tag-badge tag-disaster">{{ event.disasterType || '滑坡险情' }}</span>
+          <span class="tag-badge tag-scale">{{ event.scale || '监测处置' }}</span>
+          <span v-if="event.mutationType" class="tag-badge tag-mutation">{{ event.mutationType }}</span>
+          <span class="tag-badge tag-status"><i class="status-dot"></i><span>处置复盘报告</span></span>
         </div>
       </div>
 
       <div class="header-right">
-        <button v-if="demoPresentation" type="button" class="btn-action btn-download" title="下载 Word 报告" @click="handleDownload">
+        <button type="button" class="btn-action btn-download" title="下载 Word 报告" @click="handleDownload">
           <el-icon><Download /></el-icon><span>下载 Word</span>
         </button>
-        <template v-else>
-          <button type="button" class="btn-action btn-edit" @click="handleEdit">编辑</button>
-          <button type="button" class="btn-action btn-confirm" @click="handleConfirm">确认</button>
-        </template>
       </div>
     </header>
 
@@ -68,21 +57,16 @@
           <!-- 顶部引导与免责声明 -->
           <div class="disclaimer-tip-row">
             <el-icon class="tip-icon"><InfoFilled /></el-icon>
-            <span v-if="demoPresentation">报告依据当前事件信息及随软件交付的秭归市事件资料整理；实际结论以现场核查和业务审核记录为准。</span>
-            <span v-else>根据事件基础信息、现场调查报告、处置记录及相关图片，智能体已形成以下复盘草稿。</span>
+            <span>报告依据当前秭归市事件信息与已关联资料整理；尚未核实的内容以现场核查和业务审核结果为准。</span>
           </div>
 
           <!-- 文档报头居中区域 -->
           <div class="doc-header-center">
             <h1 class="doc-big-title">{{ reportTitle }}</h1>
-            <p class="doc-meta-line">{{ demoPresentation ? '秭归市事件 · 处置复盘报告' : '报告编号:PS-20260411-01 | AI草稿V1.0' }}</p>
-            <div v-if="demoPresentation" class="warning-alert-pill">
+            <p class="doc-meta-line">秭归市事件 · 处置复盘报告</p>
+            <div class="warning-alert-pill">
               <el-icon class="alert-icon"><WarningFilled /></el-icon>
-              <span>报告所列历史监测时片和处置记录来自随软件交付的业务资料，不代表实时监测数据或已完成的正式审核。</span>
-            </div>
-            <div v-else class="warning-alert-pill">
-              <el-icon class="alert-icon"><WarningFilled /></el-icon>
-              <span>带“待核实”标记的内容尚未完成确认，确认前不作为正式结论。</span>
+              <span>报告中的历史监测时片和处置资料不代表实时监测数据；待核实内容不作为正式结论。</span>
             </div>
           </div>
 
@@ -98,10 +82,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import {
-  DEMO_REPORT_MARKDOWN,
-  parseReportMarkdown,
-} from './demoReportMarkdown.js'
+import { parseReportMarkdown } from './reportMarkdown.js'
 
 defineOptions({ name: 'ReportDocumentSection' })
 
@@ -114,13 +95,9 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  demoPresentation: {
-    type: Boolean,
-    default: false,
-  },
 })
 
-const emit = defineEmits(['back', 'edit', 'confirm'])
+const emit = defineEmits(['back'])
 
 const articleScrollRef = ref(null)
 const articleExportRef = ref(null)
@@ -129,10 +106,24 @@ let isManualScrolling = false
 
 const reportTitle = computed(() => `${props.event.title || '秭归市事件'} 处置复盘报告`)
 
+const reportMarkdown = computed(() => {
+  if (props.markdown.trim()) return props.markdown
+  const value = (item) => String(item || '').trim() || '待核实'
+  return [
+    '# 一、事件概况',
+    `**事件名称：**${value(props.event.title || '秭归市事件')}`,
+    `**事件编号：**${value(props.event.eventId)}`,
+    `**事件类型：**${value(props.event.disasterType)}；**风险等级：**${value(props.event.riskLevel)}`,
+    `**发生时间：**${value(props.event.occurredAt)}；**发生位置：**${value(props.event.location)}`,
+    '',
+    '# 二、处置记录',
+    '当前未获取到与本事件关联的调查、监测、任务反馈及审核记录。完成业务记录关联后，可生成完整的处置复盘内容。',
+  ].join('\n\n')
+})
+
 // 解析 Markdown 与目录树
 const parsedData = computed(() => {
-  const content = props.markdown || DEMO_REPORT_MARKDOWN
-  return parseReportMarkdown(content)
+  return parseReportMarkdown(reportMarkdown.value)
 })
 
 // 过滤展示大纲列表（优先展示一级章节）
@@ -185,16 +176,6 @@ const handleScroll = () => {
   if (currentId) {
     activeHeadingId.value = currentId
   }
-}
-
-const handleEdit = () => {
-  ElMessage.info('进入报告编辑模式')
-  emit('edit')
-}
-
-const handleConfirm = () => {
-  ElMessage.success('复盘报告已确认归档')
-  emit('confirm')
 }
 
 const handleDownload = async () => {

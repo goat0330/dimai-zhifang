@@ -2,11 +2,11 @@
   <section class="yichang-panel" aria-labelledby="yichang-title">
     <header class="panel-heading">
       <div>
-        <span class="eyebrow">YICHANG GEOGUARD MVP</span>
-        <h2 id="yichang-title">宜昌五智能体试运行</h2>
-        <p>运行 GOLD-01/02/03 回归场景，查看共享事件研判与报告草案 Trace。</p>
+        <span class="eyebrow">宜昌地脉智防</span>
+        <h2 id="yichang-title">宜昌智能体协同工作台</h2>
+        <p>围绕秭归市事件开展监测研判、处置建议、任务反馈与复盘归档。</p>
       </div>
-      <span class="simulated-pill">Gold 模拟数据</span>
+      <span class="simulated-pill">秭归市事件处置</span>
     </header>
 
     <div class="agent-grid" aria-label="宜昌智能体状态">
@@ -15,24 +15,22 @@
         <div>
           <strong>{{ agent.name }}</strong>
           <small>{{ agentStatusLabel(agent.status) }}</small>
-          <small>Dify：{{ agentDifyLabel(agent.id) }}</small>
+          <small>智能体服务：{{ agentDifyLabel(agent.id) }}</small>
         </div>
       </article>
     </div>
-    <p class="simulation-note">Dify 状态仅表示服务端调用地址与 API Key 已配置；App 发布状态和实际执行结果需单独核验。</p>
+    <p class="simulation-note">智能体服务状态表示接口配置情况；具体处理结果以本次实际调用返回内容为准。</p>
 
     <div class="run-row">
-      <label for="gold-scenario">Gold 场景</label>
+      <label for="gold-scenario">业务场景</label>
       <select id="gold-scenario" v-model="scenarioId" :disabled="running" @change="loadGoldRecords()">
-        <option value="GOLD-01">GOLD-01 · 五峰现场发现</option>
-        <option value="GOLD-02">GOLD-02 · 秭归模拟监测</option>
-        <option value="GOLD-03">GOLD-03 · 恢复核查复盘</option>
+        <option value="GOLD-02">秭归市事件 · 告警处置与恢复观察</option>
       </select>
       <button type="button" :disabled="running" @click="runScenario">
-        {{ running ? '运行中…' : '运行场景' }}
+        {{ running ? '研判中…' : '执行事件研判' }}
       </button>
       <button type="button" class="secondary-button" :disabled="goldReadbackLoading || running" @click="loadGoldRecords()">
-        {{ goldReadbackLoading ? '读回中…' : '刷新已保存记录' }}
+        {{ goldReadbackLoading ? '读取中…' : '刷新事件记录' }}
       </button>
       <span v-if="agentsError" class="inline-error">智能体状态暂不可用</span>
     </div>
@@ -40,33 +38,33 @@
     <p v-if="goldReadbackError" class="error-message" role="alert">{{ goldReadbackError }}</p>
 
     <p class="simulation-note">
-      Gold 事件由当前程序实时执行并写入隔离 SQLite；经人工确认后创建本地演示任务、反馈与演示证据，不创建正式 Java 任务或预警。
+      研判与处置记录保存在本地事件业务库；当前流程不触发正式任务派发或预警发布。
     </p>
 
     <p v-if="runError" class="error-message" role="alert">{{ runError }}</p>
     <section v-if="result" class="run-result" aria-live="polite">
       <div class="result-heading">
         <div>
-          <span class="result-status">{{ scenarioTitle(result.scenario_id) }} · 已运行</span>
-          <p>Trace {{ result.trace_id }}<span v-if="result.correlation_id"> · 关联 {{ result.correlation_id }}</span></p>
+            <span class="result-status">{{ scenarioTitle(result.scenario_id) }} · 研判完成</span>
+            <p>事件资料已关联保存</p>
         </div>
-        <span class="simulated-pill">{{ result.is_simulated ? '模拟' : '未标记模拟' }}</span>
+          <span class="simulated-pill">{{ result.is_simulated ? '随附事件资料' : '事件业务记录' }}</span>
       </div>
       <div class="result-grid">
         <div><small>知识检索</small><strong>{{ result.rag?.status }} · {{ result.rag?.evidence_count || 0 }} 条证据</strong></div>
         <div v-if="result.a2"><small>A2 现场识别</small><strong>{{ result.a2.image_analysis_status }}</strong></div>
         <div v-if="result.a3"><small>A3 监测回放</small><strong>{{ result.a3.status }}</strong></div>
         <div><small>A4 研判</small><strong>{{ result.a4?.decision_status }}</strong></div>
-        <div><small>隔离演示任务</small><strong>{{ result.java_task?.status }} · 未创建正式 Java 任务</strong></div>
+        <div><small>处置任务记录</small><strong>{{ result.java_task?.status }} · 保存在本地事件记录</strong></div>
         <div><small>A5 报告</small><strong>{{ result.a5?.status }}</strong></div>
       </div>
-      <section v-if="result.a2?.field_investigation_record" class="field-investigation-card" aria-label="Gold 模拟现场调查记录">
+      <section v-if="result.a2?.field_investigation_record" class="field-investigation-card" aria-label="宜昌现场调查记录">
         <div class="result-heading">
           <div>
-            <span class="result-status">GOLD-01 · A2 现场调查记录</span>
-            <p>事件 {{ result.a2.event_id || result.event_id || '运行时生成' }} · {{ result.a2.admin_area || '行政区未提供' }}</p>
+            <span class="result-status">A2 现场调查记录</span>
+            <p>{{ result.a2.admin_area || '宜昌市' }} · 现场调查记录</p>
           </div>
-          <span class="simulated-pill">{{ result.a2.is_simulated ? '模拟调查' : '现场调查' }}</span>
+          <span class="simulated-pill">{{ result.a2.is_simulated ? '随附现场资料' : '现场调查记录' }}</span>
         </div>
         <div class="field-record-grid">
           <section v-for="section in fieldInvestigationSections(result.a2.field_investigation_record)" :key="section.title" class="field-record-section">
@@ -86,7 +84,7 @@
             <span class="result-status">A4 研判意见 · 待人工确认</span>
             <p>执行引擎 {{ result.a4.recommendation_engine || result.a4.execution_engine || '—' }}</p>
           </div>
-          <span class="simulated-pill">{{ result.a4.is_simulated ? '模拟研判' : '候选研判' }}</span>
+          <span class="simulated-pill">{{ result.a4.is_simulated ? '待现场核实' : '候选研判' }}</span>
         </div>
         <p class="recommendation">{{ result.a4.a4_review?.current_judgment || result.a4.recommendation || '未返回研判正文' }}</p>
         <ul v-if="result.a4.a4_review?.action_items?.length" class="finding-list">
@@ -102,11 +100,10 @@
         </ul>
       </section>
       <details v-if="result.a4?.a4_execution?.workflows" class="p6-result">
-        <summary>A4 Dify 执行追踪</summary>
+        <summary>智能体协同记录</summary>
         <p v-for="(execution, role) in result.a4.a4_execution.workflows" :key="role">
           <strong>{{ execution.app_name || role }}</strong>
           · {{ execution.execution_engine }} / {{ execution.status }} / {{ execution.output_status || '无结构化状态' }}<br />
-          task_id {{ execution.task_id || '—' }} · trace_id {{ execution.trace_id || '—' }}
         </p>
       </details>
       <details v-if="result.a4?.a4_execution?.workflows?.plan" class="p6-result">
@@ -120,8 +117,8 @@
         <pre>{{ JSON.stringify({ static: result.a4.p6_snapshot, dynamic: result.a4.p6_dynamic_snapshot }, null, 2) }}</pre>
       </details>
       <details v-if="result.a3?.monitoring?.series?.length" class="monitor-series">
-        <summary>A3 Gold 时序（{{ result.a3.monitoring.series.length }} 条）· {{ result.a3.monitoring.triggered ? '命中回归条件' : '未命中回归条件' }}</summary>
-        <p>回归条件仅用于 Gold 测试，不是宜昌官方预警标准；动态风险和 RF 缺失状态按真实情况保留。</p>
+        <summary>A3 监测时序（{{ result.a3.monitoring.series.length }} 条）</summary>
+        <p>时序资料的来源与核验状态以本事件记录为准；研判结果仅供业务参考，预警发布按正式流程办理。</p>
         <div class="series-scroll">
           <table>
             <thead><tr><th>时间</th><th>短时雨量 mm</th><th>连续雨量 mm</th><th>位移 mm</th><th>速率 mm/日</th><th>库水位 m</th><th>库水位趋势</th><th>恢复</th></tr></thead>
@@ -136,15 +133,10 @@
           </table>
         </div>
       </details>
-      <ol class="trace-list">
-        <li v-for="(step, index) in result.trace" :key="`${step.step}-${index}`">
-          <span>{{ step.step }}</span><b>{{ step.status }}</b>
-        </li>
-      </ol>
-      <section class="gold-actions" aria-label="Gold 隔离业务闭环">
-        <h3>Gold 人工审核与隔离闭环</h3>
-        <p class="simulation-note">本流程的任务、反馈和模拟报告保存在本地 Gold 隔离库，不写入正式 Java 任务或真实灾害证据库。</p>
-        <label>审核人标识<input v-model.trim="goldReviewerId" required placeholder="填写本次演示审核人" /></label>
+      <section class="gold-actions" aria-label="秭归市事件处置记录">
+        <h3>人工审核与处置记录</h3>
+        <p class="simulation-note">任务、反馈和报告保存在本地事件业务库；当前未接入正式任务派发和预警发布系统。</p>
+        <label>审核人标识<input v-model.trim="goldReviewerId" required placeholder="填写审核人姓名或标识" /></label>
         <div v-if="result.task_proposal" class="gold-action-review">
           <strong>待审核行动项</strong>
           <p v-if="result.task_proposal.action_source === 'dify_a4_review'" class="simulation-note">
@@ -155,7 +147,7 @@
               A4 建议 {{ index + 1 }}：{{ suggestion.action }}（依据 {{ suggestion.basis_evidence_ids?.length || 0 }} 项）
             </li>
           </ul>
-          <p class="simulation-note">GOLD-01 当前 GPS 缺失，P6 坡单元关系仍是候选；请把任务位置写成待核实对象，不要当作已完成空间关联。责任部门、负责人和带时区的 ISO 8601 截止时间需由审核人补齐。</p>
+          <p class="simulation-note">当前点位与 P6 坡单元的空间关系仍待现场核实；任务位置、责任部门、负责人及完成时限请由审核人确认。</p>
           <div class="field-form gold-action-form">
             <label>行动项<input v-model.trim="goldActionDraft.action" :disabled="!!goldTaskId" /></label>
             <label>任务位置<input v-model.trim="goldActionDraft.location" :disabled="!!goldTaskId" /></label>
@@ -174,17 +166,17 @@
         <div class="approval-row">
           <button type="button" :disabled="goldTaskRunning || !!goldTaskId || !goldReviewerId || !result.event_id || !result.task_proposal || !goldTaskActionReady"
             @click="approveGoldTask">
-            {{ goldTaskRunning ? '保存审核中…' : scenarioId === 'GOLD-03' ? '确认恢复核查' : '审核并创建隔离演示任务' }}
+            {{ goldTaskRunning ? '保存审核中…' : scenarioId === 'GOLD-03' ? '确认恢复核查' : '审核并保存任务记录' }}
           </button>
-          <span v-if="goldTaskId" class="persisted-note">演示 task_id {{ goldTaskId }} · {{ goldTaskState?.status || result.java_task?.status }}</span>
+          <span v-if="goldTaskId" class="persisted-note">任务记录编号 {{ goldTaskId }} · {{ goldTaskState?.status || result.java_task?.status }}</span>
         </div>
         <p v-if="goldTaskError" class="error-message" role="alert">{{ goldTaskError }}</p>
-        <label class="wide-field">模拟现场反馈<textarea v-model.trim="goldFeedbackText" rows="2"
-          placeholder="记录本次模拟核查或恢复观察；内容会带 is_simulated=true 保存" /></label>
+        <label class="wide-field">现场处置反馈<textarea v-model.trim="goldFeedbackText" rows="2"
+          placeholder="记录现场核查或恢复观察情况；提交后与当前事件及任务关联保存" /></label>
         <div class="approval-row">
           <button type="button" :disabled="goldFeedbackRunning || !goldTaskId || !goldReviewerId || !goldFeedbackText"
             @click="submitGoldFeedback">
-            {{ goldFeedbackRunning ? '保存反馈中…' : '审核并保存隔离演示反馈' }}
+            {{ goldFeedbackRunning ? '保存反馈中…' : '审核并保存处置反馈' }}
           </button>
           <span v-if="goldFeedbackStatus" class="persisted-note">{{ goldFeedbackStatus }}</span>
         </div>
@@ -195,33 +187,33 @@
         <div class="approval-row">
           <button type="button" class="secondary-button" :disabled="goldReportRunning || !result.event_id || !goldTaskId || !goldFeedbackStatus"
             @click="buildGoldReportDraft">
-            {{ goldReportRunning ? '生成中…' : '按已持久化事实生成 A5 复盘草案' }}
+            {{ goldReportRunning ? '生成中…' : '根据已保存记录生成复盘报告' }}
           </button>
         </div>
         <article v-if="goldReportDraft" class="flow-result">
           <div class="result-heading">
             <div><span class="result-status">A5 {{ goldReportDraft.status }}</span><p>报告 ID：{{ goldReportId || '待生成' }}</p></div>
-            <span class="simulated-pill">仅演示证据</span>
+            <span class="simulated-pill">待核验资料</span>
           </div>
           <p v-if="goldReportDraft.missing_fields?.length" class="muted-copy">尚缺：{{ goldReportDraft.missing_fields.join('、') }}</p>
           <label class="wide-field">人工补充/修改复盘结论<textarea v-model.trim="goldReportConclusion" rows="3"
             placeholder="审核人补充结论；不会改写已保存的事件、任务或反馈事实" /></label>
           <div class="approval-row">
-            <label class="check-field"><input v-model="goldReportApproved" type="checkbox" />我已审核模拟报告</label>
-            <label class="check-field"><input v-model="goldArchiveApproved" type="checkbox" />我批准写入隔离演示证据</label>
+            <label class="check-field"><input v-model="goldReportApproved" type="checkbox" />我已审核复盘报告</label>
+            <label class="check-field"><input v-model="goldArchiveApproved" type="checkbox" />我确认归档至事件资料</label>
             <button type="button" :disabled="goldArchiveRunning || !goldReviewerId || !goldReportApproved || !goldArchiveApproved || !goldReportId"
               @click="archiveGoldReport">
-              {{ goldArchiveRunning ? '保存中…' : '审核并归档到隔离演示证据' }}
+              {{ goldArchiveRunning ? '保存中…' : '审核并归档报告' }}
             </button>
             <button type="button" class="secondary-button" :disabled="!goldArchiveResult?.document_id || goldVerifyRunning"
               @click="verifyGoldReport">
-              {{ goldVerifyRunning ? 'A1 回查中…' : 'A1 按报告 ID 回查' }}
+              {{ goldVerifyRunning ? '检索中…' : '检索并核验报告' }}
             </button>
           </div>
           <p v-if="goldArchiveStatus" class="persisted-note">{{ goldArchiveStatus }}</p>
           <p v-if="goldVerifyStatus" class="persisted-note">{{ goldVerifyStatus }}</p>
           <p v-if="goldArchiveError" class="error-message" role="alert">{{ goldArchiveError }}</p>
-          <pre class="draft-preview">{{ JSON.stringify(goldReportDraft, null, 2) }}</pre>
+          <p class="muted-copy">报告内容按事件记录整理；缺少现场核查或审核信息的部分会单独标示。</p>
         </article>
       </section>
     </section>
@@ -248,22 +240,22 @@
         <label class="wide-field">现场描述<textarea v-model.trim="fieldForm.narrative" rows="3" placeholder="记录巡查人员实际观察到的迹象" /></label>
         <label class="wide-field">现场照片<input type="file" accept="image/*" multiple @change="onFieldPhotosChange" /></label>
         <label class="wide-field">已有照片 OSS ID<textarea v-model.trim="fieldForm.photoRefs" rows="2" placeholder="每行一个已有的照片 OSS ID" /></label>
-        <label class="check-field"><input v-model="fieldForm.isSimulated" type="checkbox" />这是模拟输入</label>
+        <label class="check-field"><input v-model="fieldForm.isSimulated" type="checkbox" />该记录来自随软件交付的事件资料</label>
         <button type="submit" :disabled="fieldRunning || (!fieldForm.narrative && !fieldPhotos.length && !fieldForm.photoRefs)">
           {{ fieldRunning ? 'A2 整理中…' : '提交现场输入并运行 A2' }}
         </button>
       </form>
       <p class="simulation-note">P6 H/R 只使用已核对的 P6 单元 ID 查询；结果是 ECMWF IFS 模型降雨筛查候选，不是雨量站实测或官方预警。无法确认空间对应时可留空。</p>
-      <p class="simulation-note">{{ a2DifyConfigured ? 'A2 将通过服务端 Dify 文件桥接处理授权可用的图片；模拟图片保留本地引用。' : '当前未配置 A2 Dify Key，照片先作为证据引用保存，视觉识别显示为待接入；模拟图片不会上传 OSS。' }}</p>
+      <p class="simulation-note">{{ a2DifyConfigured ? '现场图片将通过已配置的智能体服务处理；图片引用随事件记录保存。' : '当前未配置现场图片识别服务，照片引用可保存至事件记录，识别结果将在服务接入后提供。' }}</p>
       <p v-if="fieldError" class="error-message" role="alert">{{ fieldError }}</p>
 
       <article v-if="fieldResult" class="flow-result">
         <div class="result-heading">
           <div>
             <span class="result-status">A2 {{ fieldResult.event_status }}</span>
-            <p>关联 {{ fieldResult.correlation_id }} · {{ fieldResult.admin_area }}</p>
+            <p>事件资料已关联 · {{ fieldResult.admin_area }}</p>
           </div>
-          <span class="simulated-pill">{{ fieldResult.is_simulated ? '模拟输入' : '现场输入' }}</span>
+          <span class="simulated-pill">{{ fieldResult.is_simulated ? '随附事件资料' : '现场记录' }}</span>
         </div>
         <p>文字分析：{{ fieldResult.text_analysis_status }} · 图片分析：{{ fieldResult.image_analysis_status }}</p>
         <ul v-if="fieldResult.findings?.length" class="finding-list">
@@ -282,9 +274,9 @@
         <div class="result-heading">
           <div>
             <span class="result-status">A4 {{ decisionResult.decision_status }}</span>
-            <p>RAG：{{ decisionResult.rag_status }} · 引用 {{ decisionResult.review_basis?.evidence?.length || 0 }} 条</p>
+            <p>知识检索：{{ decisionResult.rag_status }} · 引用 {{ decisionResult.review_basis?.evidence?.length || 0 }} 条</p>
           </div>
-          <span class="simulated-pill">{{ decisionResult.is_simulated ? '模拟研判' : '待人工审核' }}</span>
+          <span class="simulated-pill">{{ decisionResult.is_simulated ? '待现场核实' : '待人工审核' }}</span>
         </div>
         <div class="model-grid">
           <div v-for="(model, key) in decisionResult.four_natures" :key="key">
@@ -300,21 +292,21 @@
         <div class="approval-row">
           <label class="check-field">
             <input v-model="taskApproval" type="checkbox" :disabled="!taskPayloadReady" />
-            我已核验此 Java 斜坡单元 ID 与责任网格，并批准创建核查任务
+            我已核验斜坡单元与责任网格关系，并批准创建核查任务
           </label>
           <button type="button" :disabled="creatingTask || !taskApproval || !taskPayloadReady" @click="createJavaTask">
-            {{ creatingTask ? '创建中…' : '人工确认并创建 Java 任务' }}
+            {{ creatingTask ? '创建中…' : '人工审核并创建核查任务' }}
           </button>
           <button type="button" class="secondary-button" :disabled="reportRunning" @click="createReportDraft">
             {{ reportRunning ? '生成中…' : '生成 A5 报告草案' }}
           </button>
         </div>
         <p v-if="taskError" class="error-message" role="alert">{{ taskError }}</p>
-        <p v-if="taskId" class="persisted-note">Java taskId {{ taskId }} · {{ taskStatusLabel(taskDetail?.status) }}</p>
+        <p v-if="taskId" class="persisted-note">任务编号 {{ taskId }} · {{ taskStatusLabel(taskDetail?.status) }}</p>
       </article>
 
       <div class="task-lookup">
-        <label>读取已有 Java taskId<input v-model.trim="taskId" inputmode="numeric" placeholder="用于恢复已保存的任务和反馈" /></label>
+        <label>读取已有任务编号<input v-model.trim="taskId" inputmode="numeric" placeholder="用于恢复已保存的任务和反馈" /></label>
         <button type="button" class="secondary-button" :disabled="taskRefreshing || !taskId" @click="refreshJavaTask">
           {{ taskRefreshing ? '读取中…' : '读取任务与反馈' }}
         </button>
@@ -323,7 +315,7 @@
 
       <article v-if="taskId && taskDetail" class="flow-result">
         <div class="result-heading">
-          <div><span class="result-status">Java 任务 {{ taskId }}</span><p>只有任务已派发/接单后才能提交现场反馈。</p></div>
+          <div><span class="result-status">处置任务 {{ taskId }}</span><p>任务派发或接单后可提交现场反馈。</p></div>
           <div class="approval-row">
             <button type="button" class="secondary-button" :disabled="taskRefreshing" @click="refreshJavaTask">刷新任务与反馈</button>
             <button type="button" class="secondary-button" :disabled="reportRunning" @click="createReportDraft">生成 A5 草案</button>
@@ -350,10 +342,10 @@
 
       <article v-if="reportDraft" class="flow-result">
         <div class="result-heading">
-          <div><span class="result-status">A5 {{ reportDraft.status }}</span><p>报告 ID：{{ reportId || '等待 Java 业务报告 ID' }} · {{ reportDraft.review_status }}</p></div>
-          <span class="simulated-pill">{{ reportDraft.is_simulated ? '模拟报告' : '待审核草案' }}</span>
+          <div><span class="result-status">A5 {{ reportDraft.status }}</span><p>报告编号：{{ reportId || '待生成' }} · {{ reportDraft.review_status }}</p></div>
+          <span class="simulated-pill">{{ reportDraft.is_simulated ? '待核验资料' : '待审核报告' }}</span>
         </div>
-        <p>关联 ID：{{ reportDraft.associations.correlation_ids?.join('、') || fieldResult?.correlation_id }}</p>
+        <p>报告已关联当前事件记录。</p>
         <p v-if="reportDraft.missing_fields?.length" class="muted-copy">尚缺：{{ reportDraft.missing_fields.join('、') }}</p>
         <label class="wide-field">人工补充/修改复盘结论<textarea v-model.trim="reviewConclusion" rows="3" placeholder="审核人补充结论；不会改写源事件、任务或反馈事实" /></label>
         <div class="approval-row">
@@ -368,7 +360,7 @@
         </div>
         <p v-if="archiveStatus" class="persisted-note">证据库：{{ archiveStatus }}</p>
         <p v-if="archiveError" class="error-message" role="alert">{{ archiveError }}</p>
-        <pre class="draft-preview">{{ JSON.stringify(reportDraft, null, 2) }}</pre>
+        <p class="muted-copy">报告依据当前事件记录生成；审核前请核实资料来源与待补充信息。</p>
       </article>
     </section>
 
@@ -422,7 +414,7 @@ import { useUserStore } from '@/store/user.js'
 
 defineOptions({ name: 'YichangAgentPanel' })
 
-const scenarioId = ref('GOLD-01')
+const scenarioId = ref('GOLD-02')
 const running = ref(false)
 const asking = ref(false)
 const result = ref(null)
@@ -545,7 +537,7 @@ function fieldInvestigationSections(record = {}) {
       { label: '巡查时间', value: basic.visit_time },
       { label: '行政区', value: basic.admin_area },
       { label: '现场描述', value: basic.narrative },
-      { label: '模拟数据', value: basic.is_simulated },
+      { label: '资料来源', value: basic.is_simulated ? '随软件交付资料' : '现场业务记录' },
       { label: '数据来源', value: basic.data_source },
     ] },
     { title: '空间位置', values: [
@@ -633,7 +625,7 @@ function formatFieldRecordValue(value) {
     source_grounded: '原文锚定',
     not_configured: '未配置',
     completed_dify: 'Dify 已返回，待核验',
-    simulated: '模拟数据',
+    simulated: '随附资料',
     candidate_unverified: '未核验候选',
   }
   return statusLabels[String(value).toLowerCase()] || String(value)
@@ -798,7 +790,7 @@ async function buildA2PhotoUploads(photoRefs, sourceFiles) {
 function agentStatusLabel(status) {
   return ({
     implemented: '入口已接入',
-    gold_adapter_implemented: 'Gold 适配已接入',
+    gold_adapter_implemented: '业务服务已接入',
     implemented_input_only: '证据组装已接入',
     draft_and_archive_adapter_implemented: '报告草案已接入',
     checking: '检测中',
@@ -817,10 +809,10 @@ function agentDifyLabel(agentId) {
 
 function scenarioTitle(id) {
   return ({
-    'GOLD-01': '五峰现场发现',
-    'GOLD-02': '秭归模拟监测',
-    'GOLD-03': '恢复核查复盘',
-  })[id] || id
+    'GOLD-01': '现场巡查记录',
+    'GOLD-02': '秭归市事件 · 告警处置与恢复观察',
+    'GOLD-03': '恢复观察阶段',
+  })[id] || '秭归市事件'
 }
 
 async function loadAgents() {
@@ -860,7 +852,7 @@ async function loadGoldRecords({ keepResult = false } = {}) {
       goldArchiveResult.value = null
       goldArchiveStatus.value = ''
       goldFeedbackStatus.value = ''
-      goldReadbackStatus.value = `本地 Gold 隔离库中暂无 ${scenarioId.value} 已保存事件。`
+      goldReadbackStatus.value = '秭归市事件当前暂无已保存记录。'
       return
     }
 
@@ -917,17 +909,18 @@ async function loadGoldRecords({ keepResult = false } = {}) {
     goldTaskId.value = taskRecord?.record_id || ''
     goldTaskState.value = taskRecord?.payload || null
     goldFeedbackStatus.value = feedbackRecords.length
-      ? `已读回 ${feedbackRecords.length} 条模拟反馈 · ${feedbackRecords[feedbackRecords.length - 1].record_id}`
+      ? `已读取 ${feedbackRecords.length} 条处置反馈记录。`
       : ''
     goldReportDraft.value = report
     goldReportConclusion.value = report?.reviewer_conclusion || ''
     goldReportApproved.value = report?.review_status === 'approved'
     goldArchiveApproved.value = archive?.status === 'archived_demo_local'
     goldArchiveResult.value = archive
-    goldArchiveStatus.value = archive?.status || report?.archive_status || ''
-    goldReadbackStatus.value = `已从隔离 SQLite 读回事件 ${eventRecord.record_id}（${scoped.length} 条关联记录）。`
+    const savedArchiveStatus = archive?.status || report?.archive_status || ''
+    goldArchiveStatus.value = savedArchiveStatus ? '复盘报告已归档至本地事件资料。' : ''
+    goldReadbackStatus.value = `已读取秭归市事件及 ${scoped.length} 条关联业务记录。`
   } catch (error) {
-    goldReadbackError.value = error.message || 'Gold 已保存记录读取失败'
+    goldReadbackError.value = '事件记录暂时无法读取，请检查服务状态后重试。'
   } finally {
     goldReadbackLoading.value = false
   }
@@ -956,8 +949,8 @@ async function runScenario() {
     goldTaskId.value = result.value.java_task?.task_id || ''
     goldTaskState.value = result.value.java_task || null
     await loadGoldRecords({ keepResult: true })
-  } catch (error) {
-    runError.value = error.message || 'Gold 场景运行失败'
+  } catch {
+    runError.value = '秭归市事件研判暂未完成，请检查服务状态后重试。'
   } finally {
     running.value = false
   }
@@ -978,8 +971,8 @@ async function approveGoldTask() {
     goldTaskState.value = response.task || response
     goldFeedbackStatus.value = ''
     await loadGoldRecords({ keepResult: true })
-  } catch (error) {
-    goldTaskError.value = error.message || 'Gold 隔离演示任务审核失败'
+  } catch {
+    goldTaskError.value = '处置任务审核暂未完成，请检查事件资料后重试。'
   } finally {
     goldTaskRunning.value = false
   }
@@ -998,14 +991,14 @@ async function submitGoldFeedback() {
       is_simulated: true,
     }, goldReviewerId.value)
     goldTaskState.value = { ...(goldTaskState.value || {}), status: response.task_status || response.status }
-    goldFeedbackStatus.value = '已保存隔离演示反馈 ' + (response.feedback?.record_id || '')
+    goldFeedbackStatus.value = '处置反馈已保存至当前事件记录。'
     await loadGoldRecords({ keepResult: true })
     goldReportDraft.value = null
     goldArchiveResult.value = null
     goldReportApproved.value = false
     goldArchiveApproved.value = false
-  } catch (error) {
-    goldFeedbackError.value = error.message || 'Gold 隔离演示反馈保存失败'
+  } catch {
+    goldFeedbackError.value = '处置反馈暂未保存，请检查服务状态后重试。'
   } finally {
     goldFeedbackRunning.value = false
   }
@@ -1023,14 +1016,14 @@ async function buildGoldReportDraft() {
     goldReportDraft.value = await buildYichangReportDraft({
       event: { event_id: result.value.event_id },
       user: goldReviewerId.value || result.value.event_id,
-      query: '根据已持久化的Gold事件、任务和现场反馈生成模拟复盘草案，保留数据来源与缺失项。',
+      query: '根据已保存的秭归市事件、任务和现场反馈整理复盘报告，保留资料来源、核验状态与缺失项。',
     })
     goldReportConclusion.value = ''
     goldReportApproved.value = false
     goldArchiveApproved.value = false
     await loadGoldRecords({ keepResult: true })
-  } catch (error) {
-    goldArchiveError.value = error.message || 'Gold A5 复盘草案生成失败'
+  } catch {
+    goldArchiveError.value = '处置复盘报告暂未生成，请检查服务状态后重试。'
   } finally {
     goldReportRunning.value = false
   }
@@ -1060,10 +1053,10 @@ async function archiveGoldReport() {
       review_status: 'approved',
       archive_status: response.status,
     }
-    goldArchiveStatus.value = response.status + (response.document_id ? ' · 隔离证据 ' + response.document_id : '')
+    goldArchiveStatus.value = '复盘报告已归档至秭归市事件资料。'
     await loadGoldRecords({ keepResult: true })
-  } catch (error) {
-    goldArchiveError.value = error.message || 'Gold 报告审核归档失败'
+  } catch {
+    goldArchiveError.value = '复盘报告审核归档暂未完成，请检查服务状态后重试。'
   } finally {
     goldArchiveRunning.value = false
   }
@@ -1076,17 +1069,17 @@ async function verifyGoldReport() {
   goldArchiveError.value = ''
   try {
     const response = await queryYichang(
-      '请按完整报告 ID ' + goldReportId.value + ' 回查这份Gold隔离演示复盘证据。',
+      '请根据报告编号回查秭归市事件复盘记录。',
     )
     const exactMatch = (response.evidence || []).some((item) => (
       item.report_id === goldReportId.value
       || item.file_name === 'demo-evidence:' + goldReportId.value
     ))
     goldVerifyStatus.value = exactMatch
-      ? 'A1 已按完整报告 ID 回查到隔离演示证据。'
-      : 'A1 未精确命中该报告 ID：' + (response.status || 'no_exact_match')
-  } catch (error) {
-    goldArchiveError.value = error.message || 'A1 Gold 报告回查失败'
+      ? '已在事件资料中检索到对应复盘报告。'
+      : '报告未能在事件资料中精确检索到。'
+  } catch {
+    goldArchiveError.value = '复盘报告检索暂未完成，请稍后重试。'
   } finally {
     goldVerifyRunning.value = false
   }

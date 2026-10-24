@@ -9,7 +9,6 @@
         :active-stage="activeStage"
         :skip-plan="false"
         :loading="loading"
-        :demo-mode="demoMode"
         :numeric-status-map="numericStatusMap"
         :task-type-map="taskTypeMap"
         @back="backToCockpit"
@@ -24,7 +23,6 @@
         v-else
         :event="reportEvent"
         :markdown="reportMarkdown"
-        :demo-presentation="true"
         @back="showRetrospectiveReport = false"
       />
       <div v-if="refreshNotice" class="task-refresh-notice" role="status">{{ refreshNotice }}</div>
@@ -89,7 +87,6 @@ import { normalizeTasks } from '@/components/DefenseResponse/legacyAdapter.js'
 import { taskDistList, pushTaskDistList, uploadTaskPhotos, submitTaskFeedback } from '@/api/task.js'
 import { useUserStore } from '@/store/user.js'
 import { storeToRefs } from 'pinia'
-import { demoEventId, demoMetrics, demoTasks } from './previewData.js'
 import maizhiAvatar from '@/assets/imgs/home/maizhi-avatar.png'
 import ReportDocumentSection from '@/components/ReviewReportInner/components/ReportDocumentSection.vue'
 import { buildRetrospectiveReportMarkdown } from './retrospectiveReport.js'
@@ -154,7 +151,6 @@ const taskHandleId = computed(() => {
 })
 const tasks = ref([])
 const loading = ref(false)
-const demoMode = ref(false)
 const hasLoadedRealTasks = ref(false)
 const refreshNotice = ref('')
 const activeStage = ref(3)
@@ -172,7 +168,6 @@ const chatMessages = ref([
 
 const normalizedTasks = computed(() => normalizeTasks(tasks.value, { numericStatusMap, taskTypeMap }))
 const metrics = computed(() => {
-  if (demoMode.value) return demoMetrics
   const completed = normalizedTasks.value.filter((task) => ['feedback', 'verified', 'closed'].includes(task.status)).length
   return {
     reachCount: null,
@@ -190,17 +185,13 @@ function extractRows(response) {
   return null
 }
 
-function useLocalPreview() {
-  demoMode.value = true
-  tasks.value = demoTasks
-  refreshNotice.value = ''
-}
-
 async function loadTasks() {
   refreshNotice.value = ''
   if (!taskHandleId.value) {
-    if (!hasLoadedRealTasks.value) useLocalPreview()
-    else refreshNotice.value = '未取得响应方案编号，无法按当前事件刷新后端任务。'
+    tasks.value = []
+    refreshNotice.value = hasLoadedRealTasks.value
+      ? '未取得响应方案编号，无法按当前事件刷新后端任务。'
+      : '当前事件尚未关联处置任务，请先在协同处置中心建立并审核处置方案。'
     return
   }
 
@@ -219,11 +210,12 @@ async function loadTasks() {
     const rows = extractRows(response)
     if (!rows) throw new Error('任务列表返回结构无法识别')
     tasks.value = rows
-    demoMode.value = false
     hasLoadedRealTasks.value = true
   } catch (error) {
-    if (!hasLoadedRealTasks.value) useLocalPreview()
-    else {
+    if (!hasLoadedRealTasks.value) {
+      tasks.value = []
+      refreshNotice.value = '任务列表暂时不可用，请检查事件关联和服务状态后重试。'
+    } else {
       refreshNotice.value = '后端任务状态暂未刷新，当前保留上次读取的数据。'
       ElMessage.warning('任务状态刷新失败；当前页面未修改后端任务')
     }
@@ -261,12 +253,10 @@ async function pushTaskIds(values) {
 }
 
 function handlePushAll(payload) {
-  if (demoMode.value) return
   pushTaskIds(payload?.taskIds)
 }
 
 function handlePushTask(payload) {
-  if (demoMode.value) return
   pushTaskIds([payload?.taskId])
 }
 
@@ -285,7 +275,6 @@ function getCurrentPosition() {
 }
 
 async function handleFeedback(payload) {
-  if (demoMode.value) return
   const [taskId] = normalizeIds([payload?.taskId])
   if (!taskId) {
     ElMessage.info('当前任务缺少有效的后端任务编号，未提交反馈')
@@ -326,7 +315,7 @@ async function handleFeedback(payload) {
 }
 
 function handleArchiveRequest() {
-  ElMessage.info('当前页面没有独立归档提交接口；未执行前端归档，请以后台事件状态为准')
+  ElMessage.info('请在协同处置中心核实并完成当前事件归档。')
 }
 
 function handleReportRequest() {
@@ -366,7 +355,6 @@ function handleContextStorageChange(event) {
     if (previousEventId !== eventId.value || previousHandleId !== taskHandleId.value) {
       tasks.value = []
       hasLoadedRealTasks.value = false
-      demoMode.value = false
       loadTasks()
     }
   } catch (_) {}

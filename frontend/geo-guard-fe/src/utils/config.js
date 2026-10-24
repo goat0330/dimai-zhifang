@@ -367,13 +367,13 @@ export const SINGLE_KEY = {
   // 地质开挖
   GEOLOGICAL_EXCAVATION: 'GEOLOGICAL_EXCAVATION',
 
-  // 灾害模拟演示
+  // 灾害情景推演
   SIMULATE_START: 'SIMULATE_START',
   // 降雨
   RAIN: 'RAIN',
   // 水位上涨
   FLOOD: 'FLOOD',
-  // 滑坡模拟
+  // 滑坡过程推演
   SLOPE_SLIDE: 'SLOPE_SLIDE',
   // 滑坡粒子分析
   PARTICLE_ANALYSIS: 'PARTICLE_ANALYSIS',
@@ -407,7 +407,7 @@ export const SINGLE_TAB = {
   OVERVIEW: 'OVERVIEW',
   // 灾前体检
   PRE_DISASTER_CHECK: 'PRE_DISASTER_CHECK',
-  // 灾害模拟
+  // 灾害情景推演
   DISASTER_SIMULATION: 'DISASTER_SIMULATION',
   // 受灾分析
   DISASTER_ANALYSIS: 'DISASTER_ANALYSIS',
@@ -427,7 +427,7 @@ export const SINGLE_TABS = [
     name: SINGLE_TAB.PRE_DISASTER_CHECK,
   },
   {
-    label: '灾害模拟',
+    label: '灾害情景推演',
     name: SINGLE_TAB.DISASTER_SIMULATION,
   },
   {
@@ -458,10 +458,10 @@ export const SINGLE_TAB_MAP = {
     { key: SINGLE_KEY.GEOLOGICAL_EXCAVATION, value: '地质开挖' },
   ],
   [SINGLE_TAB.DISASTER_SIMULATION]: [
-    { key: SINGLE_KEY.SIMULATE_START, value: '灾害模拟演示', order: 0 },
+    { key: SINGLE_KEY.SIMULATE_START, value: '灾害情景推演', order: 0 },
     { key: SINGLE_KEY.RAIN, value: '降雨', order: 1 },
     { key: SINGLE_KEY.FLOOD, value: '水位上涨', order: 2 },
-    { key: SINGLE_KEY.SLOPE_SLIDE, value: '滑坡模拟', order: 3 },
+    { key: SINGLE_KEY.SLOPE_SLIDE, value: '滑坡过程推演', order: 3 },
     { key: SINGLE_KEY.PARTICLE_ANALYSIS, value: '滑坡粒子分析', order: 4 },
     { key: SINGLE_KEY.AI_ANALYSIS, value: '滑坡AI分析', order: 5 },
   ],

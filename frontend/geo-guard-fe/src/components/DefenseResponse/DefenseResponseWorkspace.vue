@@ -15,7 +15,7 @@
         </div>
       </div>
       <div v-if="loading" class="yc-defense-alert">数据加载中…</div>
-      <div v-if="localNotice && !demoMode" class="yc-defense-alert" role="status">{{ localNotice }}</div>
+      <div v-if="localNotice" class="yc-defense-alert" role="status">{{ localNotice }}</div>
       <div class="yc-defense-metrics">
         <div class="yc-defense-metric"><div>群众短信触达</div><strong>{{ m.reachCount ?? '--' }}<small>/{{ m.totalCount ?? '--' }}</small></strong></div>
         <div class="yc-defense-metric"><div>处置任务触达</div><strong>{{ m.taskCompleteCount }}<small>/{{ m.taskTotalCount }}</small></strong></div>
@@ -48,11 +48,11 @@
         <div class="yc-defense-modal-head"><h3>现场任务反馈</h3><button type="button" @click="feedbackDialog = false">×</button></div>
         <p>任务：{{ selectedTaskName }}</p>
         <label>上报人员 <input v-model.trim="feedbackForm.reporter" placeholder="填写上报人员姓名" /></label>
-        <label>现场文字记录 <textarea v-model.trim="feedbackForm.remark" rows="4" placeholder="如实填写核查与处置过程；不要使用自动生成的假记录" /></label>
+        <label>现场文字记录 <textarea v-model.trim="feedbackForm.remark" rows="4" placeholder="如实记录现场核查与处置情况，并注明时间、位置及依据" /></label>
         <label>现场照片（提交时上传；至少2张） <input type="file" accept="image/*" multiple @change="handleFileChange" /></label>
         <p class="yc-defense-file-tip">提交时将请求浏览器获取当前位置作为现场打卡坐标。</p>
         <p v-if="feedbackForm.files.length" class="yc-defense-file-tip">已选 {{ feedbackForm.files.length }} 张照片，等待宿主接口上传。</p>
-        <div class="yc-defense-modal-actions"><button type="button" @click="feedbackDialog = false">取消</button><button class="primary" type="button" :disabled="!feedbackForm.reporter || !feedbackForm.remark || (!demoMode && feedbackForm.files.length < 2)" @click="submitFeedback">提交反馈</button></div>
+        <div class="yc-defense-modal-actions"><button type="button" @click="feedbackDialog = false">取消</button><button class="primary" type="button" :disabled="!feedbackForm.reporter || !feedbackForm.remark || feedbackForm.files.length < 2" @click="submitFeedback">提交反馈</button></div>
       </div>
     </div>
     <div v-if="photoDialog" class="yc-defense-photo-mask" @click.self="photoDialog = null">
@@ -74,13 +74,10 @@ const props = defineProps({
   activeStage: { type: Number, default: 3 }, // 对应原流程索引 2=方案接入 3=响应执行 4=归档
   skipPlan: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
-  demoMode: { type: Boolean, default: false },
   numericStatusMap: { type: Object, default: () => ({}) },
   taskTypeMap: { type: Object, default: () => ({}) },
 })
 const emit = defineEmits(['back', 'refresh', 'push-all', 'push-task', 'submit-feedback', 'archive-request', 'report-request', 'task-select'])
-const localTasks = ref([])
-const localStage = ref(props.activeStage)
 const localNotice = ref('')
 const selectedTask = ref(null)
 const feedbackDialog = ref(false)
@@ -88,33 +85,22 @@ const photoDialog = ref(null)
 const feedbackTask = ref(null)
 const feedbackForm = reactive({ reporter: '', remark: '', files: [] })
 const normalizeOptions = computed(() => ({ numericStatusMap: props.numericStatusMap, taskTypeMap: props.taskTypeMap }))
-const stage = computed(() => props.demoMode ? localStage.value : props.activeStage)
+const stage = computed(() => props.activeStage)
 const isArchived = computed(() => stage.value >= 4)
-const currentTasks = computed(() => props.demoMode ? localTasks.value : normalizeTasks(props.tasks, normalizeOptions.value))
+const currentTasks = computed(() => normalizeTasks(props.tasks, normalizeOptions.value))
 const allFeedback = computed(() => canCloseResponse(currentTasks.value))
 const hasPushable = computed(() => currentTasks.value.some(x => x.status === 'pending'))
-const completedCount = computed(() => currentTasks.value.filter(x => ['feedback', 'verified', 'closed'].includes(x.status)).length)
-const m = computed(() => {
-  const value = props.demoMode ? { ...props.metrics, taskTotalCount: currentTasks.value.length, taskCompleteCount: completedCount.value } : props.metrics
-  // 统计数据缺失时，根据任务状态计算处置比例。
-  if (props.demoMode) value.completeRate = currentTasks.value.length ? completedCount.value / currentTasks.value.length : 0
-  return normalizeMetrics(value, currentTasks.value)
-})
+const m = computed(() => normalizeMetrics(props.metrics, currentTasks.value))
 const selectedTaskName = computed(() => currentTasks.value.find(t => t.id === feedbackTask.value)?.label ?? '未知任务')
-watch(() => props.tasks, value => { localTasks.value = normalizeTasks(value, normalizeOptions.value) }, { immediate: true, deep: true })
-watch(() => props.activeStage, value => { localStage.value = value })
 watch(selectedTask, value => { if (value != null) emit('task-select', { eventId: props.eventId, taskId: value }) })
-function requestRefresh() { if (!props.demoMode) emit('refresh') }
-function updateLocalTask(id, change) { if (!props.demoMode) return; localTasks.value = localTasks.value.map(t => t.id === id ? { ...t, ...change } : t) }
+function requestRefresh() { emit('refresh') }
 function requestPushAll() {
   const ids = currentTasks.value.filter(t => t.status === 'pending').map(t => t.id)
   if (!ids.length) return
-  if (props.demoMode) ids.forEach(id => updateLocalTask(id, { status: 'pushed' }))
-  else emit('push-all', { eventId: props.eventId, taskIds: ids })
+  emit('push-all', { eventId: props.eventId, taskIds: ids })
 }
 function requestPush(id) {
-  if (props.demoMode) updateLocalTask(id, { status: 'pushed' })
-  else emit('push-task', { eventId: props.eventId, taskId: id })
+  emit('push-task', { eventId: props.eventId, taskId: id })
 }
 function openFeedback(id) {
   feedbackTask.value = id; feedbackForm.reporter = ''; feedbackForm.remark = ''; feedbackForm.files = []; feedbackDialog.value = true
@@ -123,14 +109,12 @@ function handleFileChange(event) { feedbackForm.files = Array.from(event.target?
 function submitFeedback() {
   if (!feedbackTask.value || !feedbackForm.reporter || !feedbackForm.remark) return
   const payload = { eventId: props.eventId, taskId: feedbackTask.value, reporter: feedbackForm.reporter, remark: feedbackForm.remark, files: [...feedbackForm.files] }
-  if (props.demoMode) updateLocalTask(payload.taskId, { status: 'feedback', reporter: payload.reporter, remark: payload.remark })
-  else emit('submit-feedback', payload)
+  emit('submit-feedback', payload)
   feedbackDialog.value = false
 }
 function requestArchive() {
   if (!allFeedback.value || isArchived.value) return
-  if (props.demoMode) localStage.value = 4
-  else emit('archive-request', { eventId: props.eventId, taskIds: currentTasks.value.map(x => x.id) })
+  emit('archive-request', { eventId: props.eventId, taskIds: currentTasks.value.map(x => x.id) })
 }
 function requestReport() {
   emit('report-request', { eventId: props.eventId })

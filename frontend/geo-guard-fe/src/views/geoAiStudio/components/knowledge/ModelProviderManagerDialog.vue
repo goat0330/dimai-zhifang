@@ -26,7 +26,7 @@
         <div class="provider-heading">
           <div>
             <h3>{{ form.display_name || '新供应商' }}</h3>
-            <p>OpenAI-Compatible 接口；Key 写入本地 SQLite，当前不加密，适用于本机开发环境。</p>
+            <p>OpenAI-Compatible 接口；Key 保存在本地 SQLite 中且当前未加密，请在受控环境配置并妥善管理。</p>
           </div>
           <el-switch v-model="form.is_enabled" active-text="启用" inactive-text="停用" />
         </div>

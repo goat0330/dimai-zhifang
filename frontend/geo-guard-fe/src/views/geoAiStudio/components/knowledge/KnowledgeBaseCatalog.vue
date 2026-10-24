@@ -126,7 +126,7 @@
             <div class="form-section span-2">
               <label>API Key</label>
               <el-input v-model="form.embedding.api_key" type="password" show-password autocomplete="new-password" placeholder="留空使用供应商密钥；也可输入本知识库专用 Key" />
-              <small>Key 保存在本地 SQLite（当前不加密）且接口不回传；适用于本机开发。这里的 Key 只覆盖当前知识库。</small>
+              <small>Key 保存在本地 SQLite（当前未加密）且接口不回传；这里的 Key 只覆盖当前知识库。</small>
             </div>
             <div class="form-section">
               <label>分块策略</label>
