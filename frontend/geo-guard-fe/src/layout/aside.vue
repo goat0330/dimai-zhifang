@@ -5,8 +5,8 @@
         <img src="@/assets/imgs/logo.png" alt="Logo" class="logo-img" />
       </div>
       <div v-if="!isCollapsed" class="platform-title">
-        <span>地脉智控
-宜昌风险管理系统</span>
+        <span>地脉智防
+地质灾害主动防控平台</span>
       </div>
     </div>
 
@@ -40,12 +40,16 @@
         <img src="@/assets/imgs/home/icon-app-grid.png" class="nav-icon" alt="AI 工作台" />
         <span v-if="!isCollapsed" class="nav-label">AI 工作台</span>
       </div>
+      <div class="nav-item" :class="{ 'is-active': route.path === '/business/cases' }" @click="handleNav('/business/cases')">
+        <img src="@/assets/imgs/home/icon-app-grid.png" class="nav-icon" alt="协同处置中心" />
+        <span v-if="!isCollapsed" class="nav-label">协同处置中心</span>
+      </div>
     </div>
 
     <div class="aside-footer">
       <div class="nav-item footer-item user-info">
         <i class="iconfont icon-a-Avatartouxiang"></i>
-        <span v-if="!isCollapsed" class="nav-label">{{ userInfo?.user?.nickName || '演示用户' }}</span>
+        <span v-if="!isCollapsed" class="nav-label">{{ userInfo?.user?.nickName || '本地用户' }}</span>
         <div class="hover-del-box-outer">
           <div class="hover-del-box" @click.stop="handleLogout">
             <img :src="logoutIcon" alt="" />

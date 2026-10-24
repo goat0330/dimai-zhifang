@@ -8,8 +8,8 @@
             <img src="@/assets/imgs/logo.png" alt="Logo" />
           </div>
           <div class="title">
-            <div class="cn-title">地脉智控</div>
-            <div class="project-subtitle">宜昌地质灾害风险管理系统</div>
+            <div class="cn-title">地脉智防</div>
+            <div class="project-subtitle">地质灾害主动防控平台</div>
           </div>
         </div>
         <div class="login-card">

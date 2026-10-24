@@ -846,7 +846,7 @@ def _render_runtime_report(
     feedback: list[Mapping[str, Any]], reviews: list[Mapping[str, Any]],
 ) -> str:
     title = "地质灾害应急调查报告" if report_type == "investigation" else "地质灾害处置复盘报告"
-    lines = [f"# {title}（Gold模拟）", "", f"- 事件：`{event.get('event_id')}`",
+    lines = [f"# {title}（合成业务案例）", "", f"- 事件：`{event.get('event_id')}`",
              f"- 场景：{', '.join(event.get('scenario_ids', []))}",
              f"- 地点：{event.get('admin_area') or event.get('location_description') or '未核实'}",
              f"- 事件时间：{event.get('occurred_at') or event.get('event_time') or '未提供'}",

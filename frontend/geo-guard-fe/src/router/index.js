@@ -31,6 +31,12 @@ const routes = [
         component: () => import('@/views/geoAiStudio/index.vue'),
         meta: { title: 'AI 工作台' },
       },
+      {
+        path: 'business/cases',
+        name: 'BusinessCaseCenter',
+        component: () => import('@/views/caseCenter/index.vue'),
+        meta: { title: '协同处置中心' },
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/warning/risk-eval' },

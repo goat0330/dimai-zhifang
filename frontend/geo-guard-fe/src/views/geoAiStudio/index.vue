@@ -2,7 +2,7 @@
   <section class="studio-page">
     <header class="studio-header">
       <div class="header-copy">
-        <h1>地脉智控 AI 工作台</h1>
+        <h1>地脉智防 · 专业知识工作台</h1>
       </div>
       <div class="service-health" aria-label="AI 服务状态">
         <div class="health-item">

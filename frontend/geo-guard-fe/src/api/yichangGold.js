@@ -15,7 +15,7 @@ async function request(path, options = {}) {
       const body = await response.json()
       message = body.detail || body.message || ''
     } catch (_) {}
-    throw new Error(message || '业务演示接口请求失败（' + response.status + '）')
+    throw new Error(message || '协同处置接口请求失败（' + response.status + '）')
   }
 
   return response

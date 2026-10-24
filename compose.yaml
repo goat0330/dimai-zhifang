@@ -1,4 +1,4 @@
-name: dimai-yichang
+name: dimai-zhifang-yichang
 
 services:
   p6-api:
@@ -75,8 +75,8 @@ services:
       SERVER_PORT: '8007'
       GEO_AI_RAG_BASE_URL: http://geo-rag-api:8010
       GEO_LOCAL_AUTH_USERNAME: admin
-      GEO_LOCAL_AUTH_PASSWORD: dzzh@2025
-      GEO_LOCAL_AUTH_DISPLAY_NAME: 地脉智控管理员
+      GEO_LOCAL_AUTH_PASSWORD: ${GEO_LOCAL_AUTH_PASSWORD:?Run Start-DiMai.ps1 to initialize a local password}
+      GEO_LOCAL_AUTH_DISPLAY_NAME: 地脉智防管理员
     expose:
       - "8007"
     depends_on:
@@ -98,6 +98,7 @@ services:
       VITE_GEO_AGENT_SERVICE_URL: http://geo-agent-graph:8011
       VITE_P6_API_URL: http://p6-api:8017
       VITE_APP_SERVER_URL: http://auth-api:8007
+      VITE_TDT_TOKEN: ${VITE_TDT_TOKEN:-}
     ports:
       - "127.0.0.1:5174:5174"
     depends_on:
@@ -128,6 +129,12 @@ services:
         condition: service_healthy
       geo-rag-api:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5175/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
     init: true
 
 volumes:

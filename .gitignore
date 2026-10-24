@@ -10,3 +10,5 @@
 **/.env.*
 !**/.env.example
 data/runtime/
+本机登录信息.txt
+_delivery_backup_*/

@@ -312,7 +312,7 @@ const yichangAreaTree = [{
 
 const GEO_DATA_URL = `${import.meta.env.BASE_URL}geo/yichang/`
 const TERRAIN_URL = `${GEO_DATA_URL}terrain/`
-const TDT_TOKEN = import.meta.env.VITE_TDT_TOKEN
+const TDT_TOKEN = String(import.meta.env.VITE_TDT_TOKEN || '').trim()
 const yichangLayerStates = new Map()
 const YICHANG_LAYER_CONFIG = {
   yichang_county_units: {
@@ -541,7 +541,7 @@ const initMarsMap = () => {
     resizeObserver.observe(mapDomRef.value)
   }
 
-  // 默认使用天地图影像与宜昌本地 DEM 地形。
+  // 默认使用本地 DEM；如已授权天地图密钥，叠加在线影像。
   changeBaseMap('terrain')
 
   isMapReady.value = true
@@ -584,6 +584,18 @@ const changeBaseMap = (type = 'terrain') => {
   const layer11 = mapInstance.getLayerById(11)
   const imageryLayers = mapInstance.viewer.imageryLayers
 
+  if (!TDT_TOKEN) {
+    // 评审机器无需填写地图密钥，也能够查看地形、行政边界、道路及水系。
+    // 此模式仅使用随安装包提供的空间资料，不声称提供卫星影像。
+    setTerrainVisible(type === 'terrain' || type === 'pilot' || type === 'default')
+    mapInstance.viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#e8e6df')
+    for (const key of ['yichang_county_units', 'yichang_roads', 'yichang_water_lines']) {
+      handleLayerChange({ key, checked: true })
+    }
+    raiseWmsLayersToTop()
+    return
+  }
+
   if (type === 'terrain' || type === 'pilot' || type === 'default') {
     // 使用宜昌 DEM 地形并叠加天地图卫星影像。
     setTerrainVisible(true)
@@ -622,6 +634,7 @@ const changeBaseMap = (type = 'terrain') => {
  * @param {{ type: 'terrain'|'pilot'|'imagery', show: boolean }} options 注记所属底图及显示状态
  */
 const toggleImageryLabel = ({ type, show }) => {
+  if (!TDT_TOKEN) return
   const imageryLayers = mapInstance?.viewer?.imageryLayers
   if (!imageryLayers) return
 
