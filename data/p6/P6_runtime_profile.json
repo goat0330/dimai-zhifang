@@ -1,5 +1,5 @@
 {
-  "profile_name": "dimai_zhikong_yichang",
+  "profile_name": "dimai_zhifang",
   "expected_units": 1590,
   "id_pattern": "^YCSV2_[0-9]{6}$",
   "unified_data_path": "/data/P6_SHEVR统一数据_1590.parquet",

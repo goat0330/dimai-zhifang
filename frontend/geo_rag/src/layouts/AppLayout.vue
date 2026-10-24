@@ -137,7 +137,7 @@ const activeConversationThreadId = computed(() => {
   return route.path.startsWith('/agent') ? currentThreadId.value : null
 })
 const organizationName = computed(() => {
-  return infoStore.organization.name || infoStore.branding.name || '地脉智控知识库'
+  return infoStore.organization.name || infoStore.branding.name || '地脉智防知识库'
 })
 
 // 下面是导航菜单部分，添加智能体项
@@ -467,9 +467,9 @@ provide('settingsModal', {
       <div class="foo">
         <div class="github nav-item" @click.stop>
           <a-tooltip placement="right" :open="sidebarCollapsed ? undefined : false">
-            <template #title>地脉智控宜昌演示</template>
+            <template #title>地脉智防宜昌演示</template>
             <a href="http://127.0.0.1:5174/demo" class="github-link">
-              <span class="nav-text">地脉智控演示</span>
+              <span class="nav-text">地脉智防演示</span>
             </a>
           </a-tooltip>
         </div>

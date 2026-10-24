@@ -117,7 +117,7 @@
           <a
             class="github-link"
             href="http://127.0.0.1:5174/warning/risk-eval"
-            aria-label="地脉智控宜昌系统"
+            aria-label="地脉智防宜昌系统"
           >
             <span>进入宜昌系统</span>
           </a>
@@ -129,7 +129,7 @@
         <span class="hero-vignette" aria-hidden="true"></span>
         <div class="hero-content">
           <p class="hero-eyebrow reveal-up">
-          <span class="eyebrow-dot"></span>地脉智控 · 宜昌地质灾害知识服务
+          <span class="eyebrow-dot"></span>地脉智防 · 宜昌地质灾害知识服务
           </p>
           <h1 class="title reveal-up delay-1">{{ infoStore.branding.title }}</h1>
           <div class="subtitle-wrap reveal-up delay-1">

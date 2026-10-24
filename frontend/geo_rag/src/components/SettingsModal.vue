@@ -98,7 +98,7 @@
               <X :size="14" />
             </button>
           </div>
-          <p class="star-card-title">geo_rag · 地脉智控知识库</p>
+          <p class="star-card-title">geo_rag · 地脉智防知识库</p>
           <p class="star-card-description">
             面向宜昌地质灾害防治场景，提供资料管理、知识检索与问答能力。
           </p>

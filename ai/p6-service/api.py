@@ -219,7 +219,7 @@ def create_app(store=None):
     async def lifespan(app):
         store.load()
         yield
-    app=FastAPI(title='地脉智控宜昌风险数据服务',version='1.0.0',lifespan=lifespan,
+    app=FastAPI(title='地脉智防宜昌风险数据服务',version='1.0.0',lifespan=lifespan,
                 description='提供宜昌斜坡单元风险等级和动态风险查询接口。',
                 docs_url=None,redoc_url=None,openapi_url=None)
     app.state.store=store

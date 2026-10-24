@@ -292,7 +292,7 @@
     <!-- 页面底部：版权信息等 -->
     <footer class="page-footer">
       <div class="footer-links">
-        <a href="http://127.0.0.1:5174/warning/risk-eval">返回地脉智控</a>
+        <a href="http://127.0.0.1:5174/warning/risk-eval">返回地脉智防</a>
         <span class="divider">|</span>
         <a href="http://127.0.0.1:5174/warning/risk-eval">打开宜昌系统</a>
       </div>
@@ -339,7 +339,7 @@ const brandOrgName = computed(() => {
 })
 const brandName = computed(() => {
   const orgName = brandOrgName.value
-  const brandNameRaw = infoStore.branding?.name?.trim() || '地脉智控知识库'
+  const brandNameRaw = infoStore.branding?.name?.trim() || '地脉智防知识库'
 
   if (orgName && brandNameRaw && orgName !== brandNameRaw) {
     return brandNameRaw
