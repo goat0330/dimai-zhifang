@@ -4,10 +4,10 @@
       <div><small>地脉智防 · 多智能体协同</small><h1>协同处置中心</h1><p>现场发现—监测研判—处置审核—任务反馈—复盘报告</p></div>
       <el-button plain type="primary" @click="$router.push('/ai-studio')">进入专业知识工作台</el-button>
     </header>
-    <div class="notice"><strong>案例数据说明</strong>：本模块提供可复现的业务流程。部分现场、监测、人员和反馈记录为合成资料，不代表真实监测数据、正式预警或行政处置；P6风险值来自随软件交付的历史时片。</div>
+    <div class="notice"><strong>资料范围</strong>：本流程关联随软件交付的秭归市事件业务资料，包含现场、监测、人员和处置记录。P6风险值来自历史时片，不代表实时设备状态；实际处置以现场核查、接入数据和审核记录为准。</div>
     <section class="toolbar">
-      <span>业务案例</span>
-      <strong>秭归 · 监测告警与恢复跟踪</strong>
+      <span>处置事件</span>
+      <strong>秭归市事件 · 告警处置与恢复跟踪</strong>
       <el-button type="primary" :loading="busy === 'start'" @click="start">建立事件流程</el-button>
       <el-button :disabled="!runId" :loading="busy === 'refresh'" @click="refresh">刷新持久化记录</el-button>
     </section>
@@ -15,21 +15,21 @@
     <template v-if="runId">
       <section class="overview">
         <div class="section-overline">当前事件 <el-tag :type="finished ? 'success' : 'warning'">{{ finished ? '已完成' : '处理中' }}</el-tag></div>
-        <h2>{{ event.event_name || event.title || '宜昌地质灾害业务事件' }}</h2>
+        <h2>{{ event.event_name || event.title || '秭归市事件' }}</h2>
         <p>{{ event.summary || event.description || '详情以已保存的业务记录为准。' }}</p>
-        <div class="facts"><div><span>事件编号</span><b>{{ event.event_id || runId }}</b></div><div><span>任务</span><b>{{ tasks.length }}</b></div><div><span>反馈</span><b>{{ feedbacks.length }}</b></div><div><span>报告</span><b>{{ reports.length }}</b></div></div>
+        <div class="facts"><div><span>事件</span><b>秭归市事件</b></div><div><span>任务</span><b>{{ tasks.length }}</b></div><div><span>反馈</span><b>{{ feedbacks.length }}</b></div><div><span>报告</span><b>{{ reports.length }}</b></div></div>
       </section>
       <h2 class="section-title">操作流程</h2>
       <div class="steps">
         <article class="step"><small>01 / 风险感知</small><h3>监测与动态风险</h3><p>记录监测阶段并关联P6风险时片，保留数据来源和监测状态。</p><el-button :disabled="Boolean(busy) || executed('A3', stage)" :loading="busy === 'a3'" @click="act('a3', () => executeGoldA3(runId, stage))">{{ executed('A3', stage) ? '当前阶段已保存' : '执行当前阶段研判' }}</el-button></article>
-        <article class="step"><small>02 / 辅助决策</small><h3>处置建议与审核</h3><p>从专业依据和事件记录生成候选措施，需明确审核后才能形成任务。</p><div class="buttons"><el-button :disabled="Boolean(busy) || executed('A4')" @click="act('a4', () => executeGoldA4(runId))">生成处置建议</el-button><el-button type="primary" plain :disabled="Boolean(busy) || !executed('A4') || planApproved" @click="act('plan', () => reviewGoldPlan(runId))">确认案例方案</el-button></div></article>
-        <article class="step"><small>03 / 任务反馈</small><h3>执行反馈与逐项复核</h3><p>反馈和复核保存在同一事件链。秭归案例须先记录恢复阶段，方可逐项复核。</p><div class="buttons"><el-button :disabled="Boolean(busy) || !planApproved || stageFeedbackSaved" @click="act('feedback', () => replayGoldFeedback(runId, stage))">{{ stageFeedbackSaved ? '当前阶段反馈已保存' : '写入当前阶段案例反馈' }}</el-button><el-button v-for="task in tasks.filter(t => !reviewed(t))" :key="task.task_id" :disabled="Boolean(busy) || !canReviewTasks" @click="act('review', () => reviewGoldTask(runId, task.fixture_task_key))">复核任务{{ String(task.task_id || '').slice(-5) }}</el-button></div></article>
+        <article class="step"><small>02 / 辅助决策</small><h3>处置建议与审核</h3><p>从专业依据和事件记录生成候选措施，需完成审核后才能形成任务。</p><div class="buttons"><el-button :disabled="Boolean(busy) || executed('A4')" @click="act('a4', () => executeGoldA4(runId))">生成处置建议</el-button><el-button type="primary" plain :disabled="Boolean(busy) || !executed('A4') || planApproved" @click="act('plan', () => reviewGoldPlan(runId))">登记方案审核结果</el-button></div></article>
+        <article class="step"><small>03 / 任务反馈</small><h3>执行反馈与逐项复核</h3><p>反馈和复核保存在同一事件链。该事件须先记录恢复阶段，方可逐项复核。</p><div class="buttons"><el-button :disabled="Boolean(busy) || !planApproved || stageFeedbackSaved" @click="act('feedback', () => replayGoldFeedback(runId, stage))">{{ stageFeedbackSaved ? '当前阶段反馈已保存' : '登记当前阶段处置反馈' }}</el-button><el-button v-for="task in tasks.filter(t => !reviewed(t))" :key="task.task_id" :disabled="Boolean(busy) || !canReviewTasks" @click="act('review', () => reviewGoldTask(runId, task.fixture_task_key))">复核任务{{ String(task.task_id || '').slice(-5) }}</el-button></div></article>
         <article v-if="scenario === 'GOLD-02'" class="step"><small>04 / 恢复观察</small><h3>追加恢复阶段</h3><p>先保存异常阶段反馈，再延续同一事件和任务链记录恢复阶段。</p><el-button :disabled="Boolean(busy) || !initialFeedbackSaved || hasRecovery" @click="recovery">{{ hasRecovery ? '恢复阶段已建立' : '建立恢复阶段' }}</el-button><el-radio-group v-if="hasRecovery" v-model="stage" class="stage"><el-radio-button value="GOLD-02">异常阶段</el-radio-button><el-radio-button value="GOLD-03">恢复阶段</el-radio-button></el-radio-group></article>
-        <article class="step"><small>{{ scenario === 'GOLD-02' ? '05' : '04' }} / 成果归档</small><h3>复盘报告</h3><p>依据持久化事实生成DOCX，审核后完成本次案例事件。</p><div class="buttons"><el-button :disabled="Boolean(busy) || !allReviewed" @click="act('report', () => createGoldRetrospective(runId))">生成复盘报告</el-button><el-button type="primary" plain :disabled="Boolean(busy) || !finalReport || finished" @click="act('final', () => reviewGoldFinalReport(runId))">审核报告</el-button><el-button v-if="finalReport" link type="primary" :disabled="Boolean(busy)" @click="download">下载DOCX</el-button></div></article>
+        <article class="step"><small>{{ scenario === 'GOLD-02' ? '05' : '04' }} / 成果归档</small><h3>复盘报告</h3><p>依据已保存的事件记录生成DOCX，审核后完成当前事件处置。</p><div class="buttons"><el-button :disabled="Boolean(busy) || !allReviewed" @click="act('report', () => createGoldRetrospective(runId))">生成复盘报告</el-button><el-button type="primary" plain :disabled="Boolean(busy) || !finalReport || finished" @click="act('final', () => reviewGoldFinalReport(runId))">审核报告</el-button><el-button v-if="finalReport" link type="primary" :disabled="Boolean(busy)" @click="download">下载DOCX</el-button></div></article>
       </div>
       <section class="records"><h2>持久化记录</h2><p>下列数量来自本次事件的业务数据库读取结果。</p><div class="counts"><div v-for="r in counts" :key="r.key"><span>{{ r.name }}</span><b>{{ r.num }}</b></div></div></section>
     </template>
-    <el-empty v-else description="选择业务案例，建立事件后即可开始协同处置" />
+      <el-empty v-else description="建立秭归市事件后，即可开展协同处置" />
   </main>
 </template>
 
@@ -68,11 +68,11 @@ const counts = computed(() => [{ key: 'discovery', name: '发现', num: rows('di
 const key = () => 'dimai:case:' + scenario.value
 async function load(id) { snap.value = await readGoldRun(id); localStorage.setItem(key(), id) }
 async function restore() { snap.value = null; error.value = ''; stage.value = scenario.value; const id = localStorage.getItem(key()); if (id) try { await load(id) } catch { localStorage.removeItem(key()) } }
-async function start() { busy.value = 'start'; error.value = ''; try { const x = await startGoldRun(scenario.value); const id = x.run?.run_id || x.run_id; if (!id) throw new Error('业务服务未返回事件编号'); await load(id); ElMessage.success('事件已建立') } catch (e) { error.value = e.message || '建立事件失败' } finally { busy.value = '' } }
+async function start() { busy.value = 'start'; error.value = ''; try { const x = await startGoldRun(scenario.value); const id = x.run?.run_id || x.run_id; if (!id) throw new Error('业务服务未返回事件编号'); await load(id); ElMessage.success('秭归市事件已建立') } catch { error.value = '秭归市事件暂时无法建立，请检查服务状态后重试。' } finally { busy.value = '' } }
 async function refresh() { await act('refresh', async () => {}) }
-async function act(keyName, operation) { if (!runId.value || busy.value) return; busy.value = keyName; error.value = ''; try { await operation(); await load(runId.value); ElMessage.success('业务记录已更新') } catch (e) { error.value = e.message || '执行失败，请查看服务日志' } finally { busy.value = '' } }
+async function act(keyName, operation) { if (!runId.value || busy.value) return; busy.value = keyName; error.value = ''; try { await operation(); await load(runId.value); ElMessage.success('业务记录已更新') } catch { error.value = '事件处置操作暂未完成，请检查服务状态后重试。' } finally { busy.value = '' } }
 async function recovery() { await act('recovery', () => executeGoldRecovery(runId.value)); if (hasRecovery.value) stage.value = 'GOLD-03' }
-async function download() { if (!finalReport.value?.report_id) return; busy.value = 'download'; try { const blob = await downloadGoldReport(runId.value, finalReport.value.report_id); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = finalReport.value.docx_file_name || '地脉智防_复盘报告.docx'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) } catch (e) { error.value = e.message || '报告下载失败' } finally { busy.value = '' } }
+async function download() { if (!finalReport.value?.report_id) return; busy.value = 'download'; try { const blob = await downloadGoldReport(runId.value, finalReport.value.report_id); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = finalReport.value.docx_file_name || '地脉智防_复盘报告.docx'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000) } catch { error.value = '复盘报告暂时无法下载，请稍后重试。' } finally { busy.value = '' } }
 onMounted(restore)
 </script>
 

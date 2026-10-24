@@ -170,10 +170,10 @@ def _fixture_mapping(event_fixture: Mapping[str, Any], risk_fixture: Mapping[str
     return {
         "p6_slope_unit_id": slope_id,
         "mapping_status": candidate.get("mapping_status", "candidate_unverified"),
-        "mapping_scope": candidate.get("mapping_scope", "gold_demo_query_only"),
+        "mapping_scope": candidate.get("mapping_scope", "packaged_yichang_event_reference"),
         "source": candidate.get(
             "mapping_source",
-            "Gold fixture candidate mapping; spatial match remains unverified",
+            "秭归事件资料中的候选关联，空间匹配尚待核验",
         ),
         "coordinate_crs_status": candidate.get("coordinate_crs_status"),
         "snapshot_id_reference": candidate.get("snapshot_id"),
@@ -341,7 +341,7 @@ async def start_dual_gold_run(scenario_id: str, *, run_id: str | None = None) ->
             "discovery_id": mapping["discoveries"][discovery_fixture["discovery_id"]],
             "fixture_event_id": event_fixture["event_id"], "event_status": "awaiting_plan_review",
             "status": "awaiting_plan_review", "is_simulated": True,
-            "data_source": data_source or "v1.1_gold_fixture",
+            "data_source": data_source or "随软件交付的宜昌事件资料",
             "p6_mapping": p6_mapping,
             "p6_fixture_reference": risk_fixture.get("p6_candidate"),
             "hazard_cancelled": False,
@@ -368,7 +368,7 @@ async def start_dual_gold_run(scenario_id: str, *, run_id: str | None = None) ->
             "trace_id": trace_id, "query": query, "status": rag_status,
             "evidence": evidence, "evidence_count": len(evidence), "error": rag_error,
             "execution_engine": "not_run", "is_simulated": True,
-            "data_source": "Geo-RAG deferred to Phase 2; Gold event facts remain simulated",
+            "data_source": "秭归事件资料由本地业务记录提供，未执行外部知识检索",
         }, record_id=rag_id, parent_id=event_id)
 
         decision_result = await process_decision(event, evidence, execute_dify=False)
@@ -509,7 +509,7 @@ async def execute_gold_a4(run_id: str) -> dict[str, Any]:
             if isinstance(item, Mapping)
         },
         "is_simulated": True,
-        "data_source": "persisted Gold business facts; external Geo-RAG and Dify execution",
+        "data_source": "已保存的宜昌事件业务资料；外部知识检索与智能服务状态另行标注",
     }
     save_gold_record("dify_execution", str(run["scenario_id"]), execution_payload,
                      record_id=execution_id, parent_id=str(event["event_id"]))
@@ -631,7 +631,7 @@ async def execute_gold_a2(run_id: str) -> dict[str, Any]:
         "conversation_id": vision.get("conversation_id"),
         "image_input_contract_status": vision.get("status") if vision.get("execution_engine") == "local" else "enabled",
         "raw_outputs": vision.get("outputs"), "error": vision.get("error"),
-        "data_source": "GOLD-01 synthetic image and persisted field report",
+        "data_source": "五峰现场巡查图片与调查记录",
         "is_simulated": True,
     }
     save_gold_record("dify_execution", "GOLD-01", execution_payload,
@@ -746,7 +746,7 @@ async def _generate_a5_report(
     report = await generate_report_from_facts(
         facts,
         user=str(run["run_id"]),
-        query=f"根据已持久化的宜昌Gold事件事实生成{report_type}报告。",
+        query=f"根据已保存的宜昌事件处置记录生成{report_type}报告。",
         allow_simulated_gold_dify=execute_dify,
     )
     report_id = existing_report_id or new_gold_id("report", str(run["scenario_id"]))
@@ -794,7 +794,7 @@ async def _generate_a5_report(
             "raw_outputs": generation.get("raw_outputs"), "raw_response": generation.get("raw_response"),
             "input_snapshot": generation.get("input_snapshot"),
             "error": generation.get("error"), "is_simulated": True,
-            "data_source": "persisted Gold business records read back from SQLite",
+            "data_source": "Yichang event records read back from the local business database",
         }
         save_gold_record("dify_execution", str(run["scenario_id"]), execution_payload,
                          record_id=execution_id, parent_id=str(event["event_id"]))
@@ -846,11 +846,10 @@ def _render_runtime_report(
     feedback: list[Mapping[str, Any]], reviews: list[Mapping[str, Any]],
 ) -> str:
     title = "地质灾害应急调查报告" if report_type == "investigation" else "地质灾害处置复盘报告"
-    lines = [f"# {title}（合成业务案例）", "", f"- 事件：`{event.get('event_id')}`",
-             f"- 场景：{', '.join(event.get('scenario_ids', []))}",
+    lines = [f"# {title}", "", f"- 事件：{event.get('event_name') or event.get('title') or '地质灾害事件'}",
              f"- 地点：{event.get('admin_area') or event.get('location_description') or '未核实'}",
              f"- 事件时间：{event.get('occurred_at') or event.get('event_time') or '未提供'}",
-             "- 数据属性：模拟业务事实；不代表现实险情或现实处置。", ""]
+             "- 资料来源：随软件交付的业务资料；当前未关联实时设备采集或正式行政审批记录。", ""]
     if report_type == "investigation":
         lines.extend(["## 调查记录", str(investigation.get("conclusion") or investigation.get("mock_case_facts", {}).get("preliminary_conclusion") or "调查结论待补充。"),
                       "", "## 变形迹象与威胁对象"])
@@ -859,15 +858,15 @@ def _render_runtime_report(
         for item in investigation.get("threat_objects", []):
             lines.append(f"- {item.get('type')}: {item.get('status')}; 数量={item.get('count')}")
     else:
-        lines.extend(["## 研判与处置依据", str(decision.get("recommendation") or decision.get("disposal_opinion") or "本地适配器未生成额外研判文字。"),
-                      "", "## 任务执行与验收", "|任务ID|措施|负责人|状态|反馈数|复核|", "|---|---|---|---|---:|---|"])
-        for task in tasks:
+        lines.extend(["## 研判与处置依据", str(decision.get("recommendation") or decision.get("disposal_opinion") or "当前未形成处置研判内容。"),
+                      "", "## 任务执行与复核", "|任务|措施|负责人|状态|反馈数|复核情况|", "|---|---|---|---|---:|---|"])
+        for index, task in enumerate(tasks, start=1):
             task_id = task.get("task_id")
             task_feedback = [item for item in feedback if item.get("task_id") == task_id]
             review = next((item for item in reviews if item.get("task_id") == task_id), {})
             action = task.get("action") if isinstance(task.get("action"), Mapping) else {}
-            lines.append(f"|{task_id}|{action.get('title') or action.get('action_type')}|{action.get('person')}|{task.get('status')}|{len(task_feedback)}|{review.get('review_result', '待复核')}|")
-        lines.extend(["", "## 遗留风险", str(investigation.get("residual_risk") or "模拟恢复不代表隐患销号或现实安全结论。")])
+            lines.append(f"|处置任务 {index}|{action.get('title') or action.get('action_type')}|{action.get('person')}|{task.get('status')}|{len(task_feedback)}|{review.get('review_result', '待复核')}|")
+        lines.extend(["", "## 遗留风险", str(investigation.get("residual_risk") or "恢复观察记录不代表隐患已消除、销号或形成正式安全结论。")])
     return "\n".join(lines).strip() + "\n"
 
 
@@ -925,7 +924,7 @@ async def approve_gold_plan(run_id: str, *, fixture_replay: bool, reviewer_id: s
             "reviewer_id": approved_by, "approval_id": approval_id,
             "approval_mode": "simulated_gold_test_harness", "execution_engine": "local",
             "formal_java_task_created": False, "is_simulated": True,
-            "data_source": fixture.get("data_source", "v1.1_gold_fixture"),
+            "data_source": fixture.get("data_source", "随软件交付的事件业务资料"),
             "dispatch_time": fixture.get("dispatch_time_expected"),
         }
         save_gold_record("task", str(run["scenario_id"]), task, record_id=task_id,
@@ -951,7 +950,7 @@ async def approve_gold_plan(run_id: str, *, fixture_replay: bool, reviewer_id: s
         "task_ids": [item["task_id"] for item in task_records],
         "approval_id": approval_id, "status": "approved_for_gold_replay",
         "review_status": "approved", "execution_engine": "local",
-        "is_simulated": True, "data_source": "persisted Gold task proposals and plan approval",
+        "is_simulated": True, "data_source": "秭归事件处置任务方案与审核记录",
     }
     disposal_report["sections"] = {"runtime_business_markdown": disposal_report["report_text"]}
     disposal_report["report_text"] = sync_report_markdown_status(disposal_report) or disposal_report["report_text"]

@@ -92,7 +92,7 @@ import { storeToRefs } from 'pinia'
 import { demoEventId, demoMetrics, demoTasks } from './previewData.js'
 import maizhiAvatar from '@/assets/imgs/home/maizhi-avatar.png'
 import ReportDocumentSection from '@/components/ReviewReportInner/components/ReportDocumentSection.vue'
-import { buildRetrospectiveDemoMarkdown } from './retrospectiveDemo.js'
+import { buildRetrospectiveReportMarkdown } from './retrospectiveReport.js'
 
 defineOptions({ name: 'TaskDispatchPage' })
 
@@ -139,14 +139,14 @@ const context = ref(readContext())
 const eventId = computed(() => context.value.sourceEventId || context.value.eventKey || '')
 const eventName = computed(() => context.value.eventName || context.value.title || '')
 const reportEvent = computed(() => ({
-  title: eventName.value || '秭归县水田坝乡滑坡险情',
+  title: eventName.value || '秭归市事件',
   eventId: eventId.value || '--',
   occurredAt: context.value.discoveryAt || context.value.occurrenceTime || context.value.eventTime || '--',
   location: context.value.location || context.value.displayAddress || context.value.address || '--',
   disasterType: context.value.eventTypeName || context.value.eventType || '滑坡险情',
   riskLevel: context.value.riskLevel || '待核实',
 }))
-const reportMarkdown = computed(() => buildRetrospectiveDemoMarkdown(reportEvent.value))
+const reportMarkdown = computed(() => buildRetrospectiveReportMarkdown(reportEvent.value))
 const showRetrospectiveReport = ref(false)
 const taskHandleId = computed(() => {
   const value = String(context.value.planHandleId || '')
@@ -334,8 +334,8 @@ function handleReportRequest() {
   showRetrospectiveReport.value = true
   chatMessages.value = [
     ...chatMessages.value,
-    makeBubble(2, `生成「${event.title}」的复盘报告演示稿`),
-    makeBubble(1, '我将沿用当前主事件上下文，并参考 GOLD-02 / GOLD-03 的调查、任务反馈与恢复复核样例生成报告演示稿。'),
+    makeBubble(2, `整理「${event.title}」的处置复盘报告`),
+    makeBubble(1, '报告依据当前事件已保存的调查记录、任务反馈与恢复复核信息生成，审核后可归档。'),
     {
       comp: Components.RETROSPECTIVE_TRACE,
       props: {

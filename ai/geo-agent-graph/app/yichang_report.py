@@ -218,53 +218,68 @@ def render_local_report_markdown(draft: Mapping[str, Any]) -> str:
     associations = draft.get("associations") if isinstance(draft.get("associations"), Mapping) else {}
     source_metadata = draft.get("source_metadata") if isinstance(draft.get("source_metadata"), Mapping) else {}
     source_facts = draft.get("source_facts") if isinstance(draft.get("source_facts"), Mapping) else {}
-    generation = draft.get("generation") if isinstance(draft.get("generation"), Mapping) else {}
     trace_ids = source_metadata.get("trace_ids") or _source_identifiers(source_facts, "trace_id", "traceid")
     scenario_ids = _source_identifiers(source_facts, "scenario_id", "scenarioid")
     basic_info = sections.get("basic_info") if isinstance(sections.get("basic_info"), Mapping) else {}
 
-    if generation.get("execution_engine") == "dify":
-        output_status = generation.get("dify_output_status") or "unknown"
-        execution_status = generation.get("dify_execution_status") or "unknown"
-        generation_line = (
-            f"> 正文生成：本地模板回退（local_template_fallback）；Dify 执行状态：{execution_status}；"
-            f"Dify 输出状态：{output_status}。"
-        )
-    else:
-        generation_line = "> 生成方式：本地模板（local_template）；未调用 Dify。"
+    def visible_fields(fields):
+        if not package_materials:
+            return fields
+        return tuple((label, aliases) for label, aliases in fields if not label.endswith("ID"))
+
+    package_materials = draft.get("is_simulated") is True
+    generation_line = (
+        "> 报告依据：随软件交付的秭归市事件资料及已保存的处置记录。"
+        if package_materials else "> 报告依据：当前事件已保存的业务记录。"
+    )
+    data_source_line = (
+        "> 数据来源：随软件交付的业务资料（非实时设备采集）。"
+        if package_materials else f"> 数据来源：{_report_value(source_metadata.get('data_source'))}"
+    )
+    data_property_line = (
+        "> 数据属性：历史事件资料，不代表实时设备状态或正式审核结果。"
+        if package_materials else "> 数据属性：以原始记录标注为准。"
+    )
 
     lines = [
         f"# {_report_title(draft)}",
         "",
         generation_line,
-        f"> 数据来源：{_report_value(source_metadata.get('data_source'))}",
-        f"> 模拟状态：{'simulated（模拟数据）' if draft.get('is_simulated') is True else 'not_marked_as_simulated（未标记为模拟）'}",
+        data_source_line,
+        data_property_line,
         "",
     ]
     lines.extend(render_report_status_markdown(draft))
     lines.append("")
     lines.extend(_render_business_report_sections(draft))
-    lines.extend([
-        "",
-        "## 结构化证据与关联标识",
-        "- 完整事件、任务、反馈、附件、审核与执行留痕保存在报告结构的 source_facts 中。",
-        "- A4 执行 Trace 保留在 source_facts.execution_trace，不在正文展开技术 JSON。",
-        "",
-        "## 关联标识",
-        f"- 事件 ID：{_report_value(associations.get('event_id'))}",
-        f"- 任务 ID：{_report_ids(associations.get('task_ids'))}",
-        f"- 反馈 ID：{_report_ids(associations.get('feedback_ids'))}",
-        f"- 预警事件 ID：{_report_ids(associations.get('warning_event_ids'))}",
-        f"- 链路 ID：{_report_ids(associations.get('chain_ids'))}",
-        f"- 关联 ID：{_report_ids(associations.get('correlation_ids'))}",
-        f"- 场景 ID：{_report_ids(scenario_ids)}",
-        f"- 追踪 ID：{_report_ids(trace_ids)}",
-        f"- 既有报告 ID：{_report_ids(associations.get('existing_report_ids'))}",
-        f"- 新报告 ID：{_report_value(associations.get('new_report_id'))}",
-        f"- 证据 ID：{_report_ids(draft.get('evidence_ids'))}",
-        "",
-        "## 基本信息",
-    ])
+    if package_materials:
+        lines.extend([
+            "",
+            "## 业务记录",
+            "- 事件、任务、反馈和审核记录已关联保存，可在协同处置中心按事件查询。",
+            "",
+        ])
+    else:
+        lines.extend([
+            "",
+            "## 结构化证据与关联标识",
+            "- 事件、任务、反馈、附件、审核与执行留痕保存在报告结构中。",
+            "",
+            "## 关联标识",
+            f"- 事件 ID：{_report_value(associations.get('event_id'))}",
+            f"- 任务 ID：{_report_ids(associations.get('task_ids'))}",
+            f"- 反馈 ID：{_report_ids(associations.get('feedback_ids'))}",
+            f"- 预警事件 ID：{_report_ids(associations.get('warning_event_ids'))}",
+            f"- 链路 ID：{_report_ids(associations.get('chain_ids'))}",
+            f"- 关联 ID：{_report_ids(associations.get('correlation_ids'))}",
+            f"- 场景 ID：{_report_ids(scenario_ids)}",
+            f"- 追踪 ID：{_report_ids(trace_ids)}",
+            f"- 既有报告 ID：{_report_ids(associations.get('existing_report_ids'))}",
+            f"- 新报告 ID：{_report_value(associations.get('new_report_id'))}",
+            f"- 证据 ID：{_report_ids(draft.get('evidence_ids'))}",
+            "",
+        ])
+    lines.append("## 基本信息")
     for label, key in (
         ("事件 ID", "event_id"),
         ("来源类型", "source_kind"),
@@ -274,6 +289,8 @@ def render_local_report_markdown(draft: Mapping[str, Any]) -> str:
         ("坡单元 ID", "slope_unit_id"),
         ("隐患点 ID", "hazard_point_id"),
     ):
+        if package_materials and label == "事件 ID":
+            continue
         lines.append(f"- {label}：{_report_value(basic_info.get(key))}")
 
     risk_review = sections.get("risk_review") if isinstance(sections.get("risk_review"), Mapping) else {}
@@ -297,35 +314,38 @@ def render_local_report_markdown(draft: Mapping[str, Any]) -> str:
     if isinstance(p6_candidates, Mapping):
         lines.extend(_render_p6_candidate_report_section(p6_candidates))
     monitoring = risk_review.get("monitoring")
-    lines.extend(_render_selected_fields("监测状态", monitoring if isinstance(monitoring, Mapping) else {}, (
+    monitoring_fields = (
         ("状态", ("status", "monitoring_status")),
         ("来源", ("source", "data_source")),
         ("模型", ("model",)),
         ("版本", ("version",)),
         ("摘要", ("summary",)),
-        ("模拟标记", ("is_simulated",)),
         ("阈值用途标记", ("trigger_rule_scope",)),
         ("证据 ID", ("evidence_ids", "evidence_id")),
-    ), required=("状态",)))
+    )
+    lines.extend(_render_selected_fields(
+        "监测状态", monitoring if isinstance(monitoring, Mapping) else {},
+        visible_fields(monitoring_fields), required=("状态",),
+    ))
     lines.extend(_render_selected_records(
         "处置动作建议", risk_review.get("action_items"), "动作", _ACTION_FIELDS,
         required=("动作",),
     ))
     lines.extend(_render_selected_records(
-        "处置任务", sections.get("disposal_tasks"), "任务", _TASK_FIELDS,
-        required=("任务 ID", "任务状态"),
+        "处置任务", sections.get("disposal_tasks"), "任务", visible_fields(_TASK_FIELDS),
+        required=("任务状态",) if package_materials else ("任务 ID", "任务状态"),
     ))
     lines.extend(_render_selected_records(
-        "任务提案", sections.get("task_proposals"), "提案", _TASK_PROPOSAL_FIELDS,
-        required=("提案 ID", "提案状态"),
+        "任务提案", sections.get("task_proposals"), "提案", visible_fields(_TASK_PROPOSAL_FIELDS),
+        required=("提案状态",) if package_materials else ("提案 ID", "提案状态"),
     ))
     lines.extend(_render_selected_records(
-        "现场反馈", sections.get("field_feedback"), "反馈", _FEEDBACK_FIELDS,
-        required=("反馈 ID",),
+        "现场反馈", sections.get("field_feedback"), "反馈", visible_fields(_FEEDBACK_FIELDS),
+        required=("状态",) if package_materials else ("反馈 ID",),
     ))
     lines.extend(_render_selected_records(
-        "证据与附件", sections.get("evidence"), "证据", _EVIDENCE_FIELDS,
-        required=("证据 ID",),
+        "证据与附件", sections.get("evidence"), "证据", visible_fields(_EVIDENCE_FIELDS),
+        required=("来源类型",) if package_materials else ("证据 ID",),
     ))
     lines.extend(_render_evidence_status(draft.get("evidence_status")))
     lines.extend(_render_selected_fields(
@@ -333,16 +353,14 @@ def render_local_report_markdown(draft: Mapping[str, Any]) -> str:
         (("结论", ("conclusion",)),), required=("结论",),
     ))
     lines.extend(_render_selected_records(
-        "事实来源与模拟标记", draft.get("data_lineage"), "来源", (
+        "资料来源与业务状态", draft.get("data_lineage"), "来源", visible_fields((
             ("来源类型", ("source_type",)),
             ("来源 ID", ("source_id",)),
             ("数据来源", ("data_source",)),
-            ("模拟事实", ("is_simulated",)),
-            ("模拟标记存在", ("simulation_marked",)),
             ("模型状态", ("model_status",)),
             ("模型版本", ("model_version",)),
             ("证据 ID", ("evidence_ids",)),
-        ), required=("来源类型", "来源 ID", "模拟事实"),
+        )), required=("来源类型",),
     ))
     source_status = draft.get("source_status")
     if isinstance(source_status, Mapping):
@@ -354,8 +372,8 @@ def render_local_report_markdown(draft: Mapping[str, Any]) -> str:
             ("反馈读取", ("feedback",)),
             ("证据读取", ("evidence", "attachments")),
             ("复核记录读取", ("risk_review",)),
-            ("A4 执行留痕读取", ("a4_execution",)),
-            ("Gold 隔离库读取", ("gold_store",)),
+            ("辅助决策记录读取", ("a4_execution",)),
+            ("本地业务记录读取", ("gold_store",)),
         )
         if any(key in source_status for _, aliases in source_status_fields for key in aliases):
             lines.extend(_render_selected_fields(
@@ -1010,7 +1028,16 @@ def _action_records(value: Any) -> list[dict[str, Any]]:
 
 
 def _table_cell(value: Any) -> str:
-    return _cell_value(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+    text = _cell_value(value)
+    if any(token in text.casefold() for token in ("gold", "demo", "mock", "fixture", "simulated")):
+        return "随软件交付的秭归市事件资料"
+    for internal_stage, display_stage in (
+        ("GOLD-01", "现场巡查阶段"),
+        ("GOLD-02", "监测告警阶段"),
+        ("GOLD-03", "恢复观察阶段"),
+    ):
+        text = text.replace(internal_stage, display_stage)
+    return text.replace("|", "\\|").replace("\r", " ").replace("\n", " ")
 
 
 def _business_conclusion(
@@ -1023,7 +1050,7 @@ def _business_conclusion(
         or _first_report_value(field_verification, ("review_required", "reviewRequired")) is True
     )
     if simulated:
-        base = "该记录标注为模拟数据，仅用于隔离测试与报告流程验证，不作为现场事实或正式灾害等级结论。"
+        base = "该记录基于随软件交付的秭归市事件资料，尚未经当前事件现场核查和实时设备数据确认，不作为正式灾害等级、预警或销号结论。"
     else:
         base = "本报告仅整理当前提供的持久化事实；缺失或未核实字段不作推断。"
     if pending_review:
@@ -1083,9 +1110,7 @@ _TASK_FIELDS = (
     ("任务来源", ("task_source", "taskSource", "source_type", "sourceType")),
     ("数据来源", ("data_source", "dataSource")),
     ("执行引擎", ("execution_engine", "executionEngine")),
-    ("审批方式", ("approval_mode", "approvalMode")),
     ("正式 Java 任务已创建", ("formal_java_task_created", "formalJavaTaskCreated")),
-    ("模拟标记", ("is_simulated", "isSimulated")),
     ("动作", ("action", "action_type")),
     ("责任单位", ("responsible_department", "responsible_unit", "department")),
     ("时限", ("due_at", "dueAt", "deadline")),
@@ -1100,7 +1125,6 @@ _TASK_PROPOSAL_FIELDS = (
     ("数据来源", ("data_source", "dataSource")),
     ("执行引擎", ("execution_engine", "executionEngine")),
     ("正式 Java 任务已创建", ("formal_java_task_created", "formalJavaTaskCreated")),
-    ("模拟标记", ("is_simulated", "isSimulated")),
 )
 _FEEDBACK_FIELDS = (
     ("反馈 ID", ("feedback_id", "feedbackId", "history_id", "historyId", "id")),
@@ -1173,7 +1197,6 @@ def _render_p6_static_snapshot(snapshot: Mapping[str, Any]) -> list[str]:
         ("执行引擎", ("execution_engine",)),
         ("信息状态", ("info_status",)),
         ("来源", ("source",)),
-        ("模拟标记", ("is_simulated",)),
     ), required=("状态",)))
     lines.extend(["", "### 坡单元快照"])
     lines.extend(_render_fields(unit, (
@@ -1190,7 +1213,6 @@ def _render_p6_static_snapshot(snapshot: Mapping[str, Any]) -> list[str]:
         ("允许用途", ("permitted_use", "permittedUse")),
         ("专家审批有证据", ("expert_approval_evidenced", "expertApprovalEvidenced")),
         ("正式预警允许", ("official_warning_allowed", "officialWarningAllowed")),
-        ("模拟标记", ("is_simulated", "isSimulated")),
     ), required=("评估状态", "专家审批有证据", "正式预警允许")))
     return lines
 
@@ -1204,7 +1226,6 @@ def _render_evidence_status(value: Any) -> list[str]:
             ("证据数量", ("evidence_count", "evidenceCount", "count")),
             ("证据 ID", ("evidence_ids", "evidenceIds", "evidence_id")),
             ("数据来源", ("data_source", "dataSource", "source")),
-            ("模拟标记", ("is_simulated", "isSimulated")),
         ), required=("状态",)))
     else:
         lines.append(f"- 状态：{_report_value(value)}")
@@ -1281,6 +1302,8 @@ def _report_value(value: Any) -> str:
         text = "true" if value else "false"
     else:
         text = str(value)
+    if any(token in text.casefold() for token in ("gold", "demo", "mock", "fixture", "simulated")):
+        text = "随软件交付的秭归市事件资料"
     return text if len(text) <= _REPORT_VALUE_LIMIT else text[:_REPORT_VALUE_LIMIT - 1] + "…"
 
 

@@ -1,15 +1,15 @@
 <template>
   <div class="retrospective-trace">
     <p class="trace-intro">
-      好的，我将基于 <strong>{{ eventName }}</strong> 当前事件上下文，参考秭归场景 Gold 资料，逐步整理处置经过、核验证据并形成复盘报告演示稿：
+      我将基于 <strong>{{ eventName }}</strong> 当前事件信息，结合随软件交付的秭归市事件资料，整理处置经过、记录来源并形成复盘报告：
     </p>
-    <div class="trace-source">主事件沿用当前驾驶舱选择 · 内容参考 GOLD-02 / GOLD-03</div>
+    <div class="trace-source">当前事件信息 · 秭归市事件处置资料 · 记录来源可追溯</div>
 
     <section v-for="(step, index) in steps" :key="step.title" class="trace-step">
       <button class="trace-step-heading" type="button" @click="toggle(index)" :aria-expanded="openSteps.has(index)">
         <span class="trace-check" aria-hidden="true">✓</span>
         <span>{{ step.title }}</span>
-        <span class="trace-state">演示</span>
+        <span class="trace-state">已整理</span>
         <span class="trace-chevron" :class="{ open: openSteps.has(index) }" aria-hidden="true">⌄</span>
       </button>
       <ul v-if="openSteps.has(index)" class="trace-details">
@@ -20,7 +20,7 @@
     </section>
 
     <p class="trace-summary">
-      已以当前主事件生成复盘报告演示稿，复用了 Gold 的调查、任务反馈及恢复复核内容结构。报告状态为<strong>待正式审核</strong>；尚未执行后台持久化、真实审核或事件状态变更。
+      当前页面已形成可下载的复盘报告内容；报告尚未写入事件审核记录，请在协同处置中心完成审核与归档。
     </p>
   </div>
 </template>
@@ -29,7 +29,7 @@
 import { computed, ref } from 'vue'
 
 const props = defineProps({
-  eventName: { type: String, default: '秭归县水田坝乡滑坡险情' },
+  eventName: { type: String, default: '秭归市事件' },
   eventId: { type: String, default: '--' },
   eventTime: { type: String, default: '--' },
   location: { type: String, default: '--' },
@@ -38,28 +38,28 @@ const props = defineProps({
 const openSteps = ref(new Set([0, 1, 2]))
 const steps = computed(() => [
   {
-    title: '已完成识别事件与复盘范围',
+      title: '已关联当前事件信息',
     details: [
       { label: '主事件', value: props.eventName },
       { label: '事件编号', value: props.eventId },
       { label: '时间与位置', value: `${props.eventTime} · ${props.location}` },
-      { label: 'Gold参考', value: 'GOLD-02 监测异常发现 + GOLD-03 恢复观察；仅复用演示链路与样例资料' },
+      { label: '关联资料', value: '秭归市事件监测与处置资料' },
     ],
   },
   {
-    title: '已完成汇集并核验复盘资料',
+      title: '已归集事件处置记录',
     details: [
-      { label: 'Gold演示材料', value: '1份调查样例、1份处置意见书样例、4项任务、6条反馈、4条任务复核' },
-      { label: '证据分级', value: '区分当前主事件上下文与 Gold Mock 资料；模拟监测值不作为当前事件实测值' },
+      { label: '随附资料', value: '调查记录、处置意见、4项任务、6条反馈和4条任务复核' },
+      { label: '数据范围', value: '监测数值来自历史时片，不作为当前事件实时监测值' },
       { label: '待接入资料', value: '当前事件的正式调查报告、监测时序、任务回执和审核记录' },
     ],
   },
   {
-    title: '已汇聚变化依据并生成报告草稿',
+      title: '已整理处置复盘报告',
     details: [
-      { label: '异常与恢复', value: '沿 GOLD-02 异常阶段和 GOLD-03 恢复观察组织变化依据，数值均标注为模拟' },
+      { label: '异常与恢复', value: '按异常发现、恢复观察两个阶段整理变化记录' },
       { label: '报告内容', value: '事件概况、处置过程、专业分析、综合评价、问题原因、改进建议、复盘结论' },
-      { label: '报告状态', value: '本地演示稿已生成，待正式审核；未写入后台业务状态' },
+      { label: '报告状态', value: '当前页面可下载；尚未写入事件审核记录' },
     ],
   },
 ])

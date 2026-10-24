@@ -11,14 +11,14 @@
         >
           <i class="iconfont icon-title-back"></i>
         </button>
-        <h1 class="page-title" :title="event.title || (demoPresentation ? '秭归县水田坝乡滑坡险情' : '高谷镇G319国道2270处公路岩质边坡垮塌')">
-          {{ event.title || (demoPresentation ? '秭归县水田坝乡滑坡险情' : '高谷镇G319国道2270处公路岩质边坡垮塌') }}
+        <h1 class="page-title" :title="event.title || '秭归市事件'">
+          {{ event.title || '秭归市事件' }}
         </h1>
         <div class="tags-group">
           <template v-if="demoPresentation">
             <span class="tag-badge tag-disaster">{{ event.disasterType || '滑坡险情' }}</span>
-            <span class="tag-badge tag-scale">GOLD-02 / GOLD-03</span>
-            <span class="tag-badge tag-status"><i class="status-dot"></i><span>演示稿 · 待审核</span></span>
+            <span class="tag-badge tag-scale">{{ event.scale || '监测处置' }}</span>
+            <span class="tag-badge tag-status"><i class="status-dot"></i><span>报告预览</span></span>
           </template>
           <template v-else>
             <span class="tag-badge tag-disaster">{{ event.disasterType || '滑坡' }}</span>
@@ -30,7 +30,7 @@
       </div>
 
       <div class="header-right">
-        <button v-if="demoPresentation" type="button" class="btn-action btn-download" title="下载 Word 演示稿" @click="handleDownload">
+        <button v-if="demoPresentation" type="button" class="btn-action btn-download" title="下载 Word 报告" @click="handleDownload">
           <el-icon><Download /></el-icon><span>下载 Word</span>
         </button>
         <template v-else>
@@ -68,21 +68,21 @@
           <!-- 顶部引导与免责声明 -->
           <div class="disclaimer-tip-row">
             <el-icon class="tip-icon"><InfoFilled /></el-icon>
-            <span v-if="demoPresentation">主事件取当前驾驶舱上下文；调查、监测和任务材料参考 Gold Mock 样例。</span>
+            <span v-if="demoPresentation">报告依据当前事件信息及随软件交付的秭归市事件资料整理；实际结论以现场核查和业务审核记录为准。</span>
             <span v-else>根据事件基础信息、现场调查报告、处置记录及相关图片，智能体已形成以下复盘草稿。</span>
           </div>
 
           <!-- 文档报头居中区域 -->
           <div class="doc-header-center">
             <h1 class="doc-big-title">{{ reportTitle }}</h1>
-            <p class="doc-meta-line">{{ demoPresentation ? 'GOLD-02 / GOLD-03 秭归场景 · 本地演示稿 · V1.0' : '报告编号:PS-20260411-01 | AI草稿V1.0' }}</p>
+            <p class="doc-meta-line">{{ demoPresentation ? '秭归市事件 · 处置复盘报告' : '报告编号:PS-20260411-01 | AI草稿V1.0' }}</p>
             <div v-if="demoPresentation" class="warning-alert-pill">
               <el-icon class="alert-icon"><WarningFilled /></el-icon>
-              <span>Gold监测值、处置反馈与复核均为模拟资料，不代表当前事件事实或正式审核结果。</span>
+              <span>报告所列历史监测时片和处置记录来自随软件交付的业务资料，不代表实时监测数据或已完成的正式审核。</span>
             </div>
             <div v-else class="warning-alert-pill">
               <el-icon class="alert-icon"><WarningFilled /></el-icon>
-              <span>带“待核实”标记的内容为示例补全，确认前不作为正式结论。</span>
+              <span>带“待核实”标记的内容尚未完成确认，确认前不作为正式结论。</span>
             </div>
           </div>
 
@@ -127,9 +127,7 @@ const articleExportRef = ref(null)
 const activeHeadingId = ref('')
 let isManualScrolling = false
 
-const reportTitle = computed(() => props.demoPresentation
-  ? `${props.event.title || '秭归县水田坝乡滑坡险情'} 处置复盘报告`
-  : '高谷镇G319国道边坡垮塌事件复盘报告')
+const reportTitle = computed(() => `${props.event.title || '秭归市事件'} 处置复盘报告`)
 
 // 解析 Markdown 与目录树
 const parsedData = computed(() => {
@@ -206,9 +204,9 @@ const handleDownload = async () => {
       import('file-saver'),
     ])
     const blob = await exportDomToDocx(articleExportRef.value)
-    const safeTitle = (props.event.title || '秭归县水田坝乡滑坡险情').replace(/[\\/:*?"<>|]/g, '_')
-    saveAs(blob, `${safeTitle}_处置复盘报告_Gold演示稿.docx`)
-    ElMessage.success('Word 演示稿已下载')
+    const safeTitle = (props.event.title || '秭归市事件').replace(/[\\/:*?"<>|]/g, '_')
+    saveAs(blob, `${safeTitle}_处置复盘报告.docx`)
+    ElMessage.success('Word 报告已下载')
   } catch (error) {
     console.error('导出复盘报告 Word 失败', error)
     ElMessage.error('Word 导出失败，请稍后重试')
