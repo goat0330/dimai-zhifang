@@ -98,7 +98,7 @@ services:
       VITE_GEO_AGENT_SERVICE_URL: http://geo-agent-graph:8011
       VITE_P6_API_URL: http://p6-api:8017
       VITE_APP_SERVER_URL: http://auth-api:8007
-      VITE_TDT_TOKEN: ${VITE_TDT_TOKEN:-}
+      VITE_TDT_TOKEN: ${VITE_TDT_TOKEN:-b056188d679ff004f7cc1fb536c11f40}
     ports:
       - "127.0.0.1:5174:5174"
     depends_on:
