@@ -36,16 +36,11 @@
           <span>可协助地灾问答、风险研判与任务协同</span>
         </div>
         <div class="mascot-avatar-wrap">
-          <video
+          <img
             class="mascot-avatar"
-            src="/video/idle.webm"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="metadata"
-            aria-label="脉知待机动画"
-          ></video>
+            src="@/assets/imgs/home/maizhi-avatar.png"
+            alt="脉知"
+          />
         </div>
 
         <!-- 语音唤醒控制组件（置于最顶层，确保百分之百可点击） -->

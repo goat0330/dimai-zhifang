@@ -15,21 +15,11 @@
 <script setup>
 import Aside from './aside.vue'
 import { RouterView, useRoute } from 'vue-router'
-import { computed, onMounted } from 'vue'
-import { useUserStore } from '@/store/user.js'
+import { computed } from 'vue'
 
 defineOptions({ name: 'AppLayout' })
 
 const route = useRoute()
-const userStore = useUserStore()
-const isLocalAiStudio = import.meta.env.DEV && route.name === 'GeoAiStudio'
-
-// 确保布局容器挂载时，全局 SSE 与心跳持续运行（内部有单例防重）
-onMounted(() => {
-  if (isLocalAiStudio) return
-  userStore.startConnection()
-  userStore.startHeartbeat()
-})
 
 // 地图类页面：主体不参与外层滚动与白底卡片，由页面自身铺满容器
 const isMapWorkspace = computed(() => {

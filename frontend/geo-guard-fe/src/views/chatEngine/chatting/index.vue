@@ -112,7 +112,7 @@ async function createNewChat() {
       },
     })
   } else {
-    router.push('/chat-engine')
+    router.push('/home')
   }
 }
 
@@ -130,7 +130,7 @@ function backToHome() {
     router.go(-1)
     return
   }
-  router.push(isAgentInputType.value ? '/agents' : '/chat-engine')
+  router.push(isAgentInputType.value ? '/agents' : '/home')
 }
 
 const chatIsEmpty = ref(true)

@@ -1,4 +1,4 @@
-﻿param([switch]$NoBrowser, [switch]$SkipBuild)
+param([switch]$NoBrowser, [switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 
@@ -38,26 +38,15 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $envPath = Join-Path $PSScriptRoot '.env'
-$credentialPath = Join-Path $PSScriptRoot '本机登录信息.txt'
 if (-not (Test-Path -LiteralPath $envPath)) {
-    $password = 'dzzh@2025'
     $lines = @(
         '# Generated locally. Do not publish this file.',
-        "GEO_LOCAL_AUTH_PASSWORD=$password",
         '# Optional: set your own Tianditu token for online satellite imagery.',
         'VITE_TDT_TOKEN='
     )
     [System.IO.File]::WriteAllLines($envPath, $lines, (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host '首次运行：已初始化本地登录配置。'
+    Write-Host '首次运行：已初始化本地部署配置。'
 }
-
-$content = Get-Content -LiteralPath $envPath -Encoding UTF8
-$passwordLine = $content | Where-Object { $_ -match '^GEO_LOCAL_AUTH_PASSWORD=\S+' } | Select-Object -Last 1
-if (-not $passwordLine) { Stop-WithError '.env 未设置 GEO_LOCAL_AUTH_PASSWORD，请补齐后重新运行。' }
-$password = ($passwordLine -split '=', 2)[1]
-$loginInfo = @("地脉智防（本机部署）", "访问地址：http://127.0.0.1:5174/", '账号：admin', "密码：$password", '本机 .env 文件不得上传至公开仓库。')
-[System.IO.File]::WriteAllLines($credentialPath, $loginInfo, (New-Object System.Text.UTF8Encoding($false)))
-
 & docker compose config --quiet
 if ($LASTEXITCODE -ne 0) { Stop-WithError 'Compose 配置校验失败，请检查 .env 与 compose.yaml。' }
 Write-Host '正在启动地脉智防六项容器服务；首次构建需要下载基础镜像和依赖。'
@@ -77,9 +66,9 @@ if (-not $verified) {
 }
 
 Write-Host '地脉智防已就绪。' -ForegroundColor Green
-Write-Host '系统入口：http://127.0.0.1:5174/warning/risk-eval'
+Write-Host '系统入口：http://127.0.0.1:5174/cockpit'
 Write-Host '协同处置：http://127.0.0.1:5174/business/cases'
 Write-Host '知识库管理：http://127.0.0.1:5175/'
-Write-Host "登录账号：admin；密码已保存至：$credentialPath"
-if (-not $NoBrowser) { Start-Process 'http://127.0.0.1:5174/warning/risk-eval' }
+Write-Host '无需账号密码，浏览器将直接进入驾驶舱。'
+if (-not $NoBrowser) { Start-Process 'http://127.0.0.1:5174/cockpit' }
 exit 0

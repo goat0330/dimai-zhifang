@@ -286,7 +286,7 @@ const userStore = useUserStore()
 const { isDeepThink } = storeToRefs(userStore)
 
 const headers = {
-  [import.meta.env.VITE_APP_TOKEN_KEY]: getToken(),
+  [import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token']: getToken(),
 }
 
 const IMAGE_RECOGNITION_DEFAULT_PROMPT = '@AI识图智能体 对图片进行风险识别'

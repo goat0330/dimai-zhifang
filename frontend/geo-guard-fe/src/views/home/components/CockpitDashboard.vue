@@ -208,16 +208,11 @@
               </div>
             </section>
           </div>
-          <video
+          <img
             class="assistant-mascot"
-            src="/video/idle.webm"
-            autoplay
-            muted
-            loop
-            playsinline
-            preload="metadata"
-            aria-label="脉知待机动画"
-          ></video>
+            :src="maizhiAvatar"
+            alt="脉知"
+          />
         </section>
 
         <section class="assistant-chat panel-card" aria-label="脉知对话">

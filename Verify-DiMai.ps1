@@ -34,7 +34,7 @@ Check '容器配置和健康状态' {
         if ($services -notcontains $name) { throw "$name 未处于运行状态" }
     }
 }
-Check '系统主入口' { Http 'http://127.0.0.1:5174/warning/risk-eval' }
+Check '系统主入口' { Http 'http://127.0.0.1:5174/cockpit' }
 Check '动态风险数据' { Http 'http://127.0.0.1:5174/p6/api/v1/dynamic/status' -Json }
 Check '本地地形配置' { Http 'http://127.0.0.1:5174/geo/yichang/terrain/layer.json' -Json }
 Check '本地地理图层配置' { Http 'http://127.0.0.1:5174/geo/yichang/frontend_layers.json' -Json }

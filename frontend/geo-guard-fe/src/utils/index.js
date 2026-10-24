@@ -102,14 +102,15 @@ export function copyToClipboard(text) {
 }
 
 export function getToken() {
-  return localStorage.getItem(import.meta.env.VITE_APP_TOKEN_KEY) || ''
+  const tokenStorageKey = import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token'
+  return localStorage.getItem(tokenStorageKey) || ''
 }
 
 export function removeToken() {
   const userStore = useUserStore()
 
   userStore.removeToken()
-  localStorage.removeItem(import.meta.env.VITE_APP_TOKEN_KEY)
+  localStorage.removeItem(import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token')
 }
 
 export function isJsonString(str) {

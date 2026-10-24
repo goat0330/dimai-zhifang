@@ -5,14 +5,32 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/login/index.vue'),
+    redirect: '/cockpit',
     meta: { title: '登录' },
   },
   {
     path: '/',
     component: () => import('@/layout/index.vue'),
-    redirect: '/warning/risk-eval',
+    redirect: '/cockpit',
     children: [
+      {
+        path: 'home',
+        name: 'YichangQaHome',
+        component: () => import('@/views/home/index.vue'),
+        meta: { title: '智能问答主页' },
+      },
+      {
+        path: 'cockpit',
+        name: 'CockpitHome',
+        component: () => import('@/views/cockpit/index.vue'),
+        meta: { title: '智能驾驶舱' },
+      },
+      {
+        path: 'chat-engine/chatting',
+        name: 'ChatEngineChatting',
+        component: () => import('@/views/chatEngine/chatting/index.vue'),
+        meta: { title: '智能问答' },
+      },
       {
         path: 'warning/risk-eval',
         name: 'RiskEval',
@@ -39,7 +57,7 @@ const routes = [
       },
     ],
   },
-  { path: '/:pathMatch(.*)*', redirect: '/warning/risk-eval' },
+  { path: '/:pathMatch(.*)*', redirect: '/cockpit' },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

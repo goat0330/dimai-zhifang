@@ -5,7 +5,6 @@ import { ElMessage } from 'element-plus'
 import { encryptBase64, encryptWithAes, generateAesKey } from '@/utils/crypto.js'
 import { encrypt } from '@/utils/jsencrypt.js'
 import { getToken } from '@/utils/index.js'
-import { useUserStore } from '@/store/user.js'
 
 // 创建 axios 实例
 const instance = axios.create({
@@ -16,15 +15,15 @@ const instance = axios.create({
     clientid: import.meta.env.VITE_APP_CLIENT_ID || 'geo-local',
   },
 })
+const tokenStorageKey = import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token'
 
 // 请求拦截器：确保每次请求附带最新的 token
 instance.interceptors.request.use(
   (config) => {
     const token = getToken()
-    const tokenKey = import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token'
     if (token) {
       config.headers = config.headers || {}
-      config.headers[tokenKey] = token
+      config.headers[tokenStorageKey] = token
     }
     return config
   },
@@ -71,7 +70,7 @@ const isRequestCanceled = (error) => (
 function request(type, url, params, config = {}) {
   return new Promise(async (resolve, reject) => {
     try {
-      instance.defaults.headers[import.meta.env.VITE_APP_TOKEN_KEY] = getToken()
+      instance.defaults.headers[tokenStorageKey] = getToken()
 
       // 是否需要加密
       const isEncrypt = config?.headers?.isEncrypt === true
@@ -108,11 +107,7 @@ function request(type, url, params, config = {}) {
 
       // 认证失败 / 登录过期
       if (code == 401 && !config.skipAuthLogout) {
-        showError('认证失败或登录已过期，请重新登录')
-        try {
-          const userStore = useUserStore()
-          await userStore.logout({ remote: false })
-        } catch (_) {}
+        showError('当前服务拒绝了此请求，相关数据暂不可用')
       }
       if (config.throwRes) {
         return resolve(res.data)
@@ -128,11 +123,7 @@ function request(type, url, params, config = {}) {
       const code = error.response?.data?.code
       // HTTP 401 或返回体中 code 为 401
       if ((status === 401 || code === 401) && !config.skipAuthLogout) {
-        showError('认证失败或登录已过期，请重新登录')
-        try {
-          const userStore = useUserStore()
-          await userStore.logout({ remote: false })
-        } catch (_) {}
+        showError('当前服务拒绝了此请求，相关数据暂不可用')
       } else if (!config.notUseError) {
         showError(error.response?.data?.msg || error.message || '请求失败')
       }

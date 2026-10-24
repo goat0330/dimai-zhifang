@@ -50,7 +50,7 @@ export const createStreamRequest = ({
 
         headers: {
           'Content-Type': 'application/json',
-          [import.meta.env.VITE_APP_TOKEN_KEY]: currentToken,
+          [import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token']: currentToken,
           ...headers,
         },
 

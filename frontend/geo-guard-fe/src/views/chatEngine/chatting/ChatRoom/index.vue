@@ -606,7 +606,7 @@ async function sendMsg(msg, files = [], uploadType = '', coordinates = null, sel
     openWhenHidden: true,
     headers: {
       Accept: 'text/event-stream',
-      [import.meta.env.VITE_APP_TOKEN_KEY]: getToken(),
+      [import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token']: getToken(),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

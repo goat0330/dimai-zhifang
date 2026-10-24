@@ -1,6 +1,6 @@
 <template>
   <aside class="aside-container" :class="{ 'is-collapsed': isCollapsed }">
-    <div class="aside-header" @click="handleNav('/warning/risk-eval')">
+    <div class="aside-header" @click="handleNav('/cockpit')">
       <div class="logo-box">
         <img src="@/assets/imgs/logo.png" alt="Logo" class="logo-img" />
       </div>
@@ -11,6 +11,14 @@
     </div>
 
     <div class="menu-scroll-area">
+      <div class="nav-item" :class="{ 'is-active': isQaActive }" @click="handleNav('/home')">
+        <img src="@/assets/imgs/home/icon-app-grid.png" class="nav-icon" alt="智能问答" />
+        <span v-if="!isCollapsed" class="nav-label">智能问答</span>
+      </div>
+      <div class="nav-item" :class="{ 'is-active': route.path === '/cockpit' }" @click="handleNav('/cockpit')">
+        <img src="@/assets/imgs/home/icon-monitor-point.png" class="nav-icon" alt="智能驾驶舱" />
+        <span v-if="!isCollapsed" class="nav-label">智能驾驶舱</span>
+      </div>
       <div class="nav-group" :class="{ 'is-open': isWarningOpen }">
         <div class="nav-item" :class="{ 'is-active': isWarningActive }" @click="toggleWarningMenu">
           <img :src="navWarningSolid" class="nav-icon icon-solid" alt="风险评价" />
@@ -49,13 +57,7 @@
     <div class="aside-footer">
       <div class="nav-item footer-item user-info">
         <i class="iconfont icon-a-Avatartouxiang"></i>
-        <span v-if="!isCollapsed" class="nav-label">{{ userInfo?.user?.nickName || '本地用户' }}</span>
-        <div class="hover-del-box-outer">
-          <div class="hover-del-box" @click.stop="handleLogout">
-            <img :src="logoutIcon" alt="" />
-            退出登录
-          </div>
-        </div>
+        <span v-if="!isCollapsed" class="nav-label">访客访问</span>
       </div>
       <div class="nav-item footer-item collapse-btn" @click="toggleCollapse">
         <img src="@/assets/imgs/home/menu-hamburger.png" class="nav-icon" alt="收起" />
@@ -69,9 +71,6 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown } from '@element-plus/icons-vue'
-import { storeToRefs } from 'pinia'
-import { useUserStore } from '@/store/user.js'
-import logoutIcon from '@/assets/imgs/logout.svg?url'
 import navWarningLine from '@/assets/imgs/home/nav-warning-line.png'
 import navWarningSolid from '@/assets/imgs/home/nav-warning-solid.png'
 
@@ -79,13 +78,12 @@ defineOptions({ name: 'AppAside' })
 
 const route = useRoute()
 const router = useRouter()
-const userStore = useUserStore()
-const { userInfo } = storeToRefs(userStore)
+const isQaActive = computed(() => route.path === '/home' || route.path.startsWith('/chat-engine/'))
 const warningSubMenus = [
   { path: '/warning/risk-eval', label: '风险评价地图' },
   { path: '/warning/risk-report', label: '动态风险一张图' },
 ]
-const isCollapsed = ref(route.name === 'DynamicRiskReport' || route.path.startsWith('/warning/'))
+const isCollapsed = ref(false)
 const isWarningOpen = ref(true)
 const isWarningActive = computed(() => route.path.startsWith('/warning/'))
 
@@ -106,9 +104,6 @@ function toggleCollapse() {
   isCollapsed.value = !isCollapsed.value
 }
 
-function handleLogout() {
-  userStore.logout()
-}
 </script>
 <style lang="less" scoped>
 .aside-container {
@@ -461,54 +456,8 @@ function handleLogout() {
       font-size: 18px;
     }
 
-    .hover-del-box-outer {
-      position: absolute;
-      top: 50%;
-      right: -100px;
-      z-index: 2000;
-      display: flex;
-      width: 140px;
-      height: 48px;
-      padding-left: 50px;
-      pointer-events: none;
-      opacity: 0;
-      transform: translateY(-50%);
-      transition: opacity 0.2s ease;
-      visibility: hidden;
-    }
-
-    .hover-del-box {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 114px;
-      height: 48px;
-      gap: 10px;
-      border-radius: 8px;
-      background: #fff;
-      box-shadow: 0 4px 12px 0 #0062de66;
-      color: #222527;
-      font-size: 12px;
-      cursor: pointer;
-
-      img {
-        width: 16px;
-        height: 16px;
-      }
-
-      &:hover {
-        background: #dcedff;
-      }
-    }
-
     &:hover {
       color: #007bff;
-
-      .hover-del-box-outer {
-        pointer-events: auto;
-        opacity: 1;
-        visibility: visible;
-      }
     }
   }
 

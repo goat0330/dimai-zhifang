@@ -33,16 +33,11 @@
         <header class="assistant-brandline">
           <strong>脉知</strong><span aria-hidden="true">|</span><h1>地脉智防智能助手</h1>
         </header>
-        <video
+        <img
           class="assistant-mascot"
-          src="/video/idle.webm"
-          autoplay
-          muted
-          loop
-          playsinline
-          preload="metadata"
-          aria-label="脉知待机动画"
-        ></video>
+          src="@/assets/imgs/home/maizhi-avatar.png"
+          alt="脉知"
+        />
         <div class="priority-event">
           <h2><span aria-hidden="true">✣</span>当前优先事件</h2>
           <div class="priority-event-title">

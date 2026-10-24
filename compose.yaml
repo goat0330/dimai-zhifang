@@ -75,7 +75,7 @@ services:
       SERVER_PORT: '8007'
       GEO_AI_RAG_BASE_URL: http://geo-rag-api:8010
       GEO_LOCAL_AUTH_USERNAME: admin
-      GEO_LOCAL_AUTH_PASSWORD: ${GEO_LOCAL_AUTH_PASSWORD:?Run Start-DiMai.ps1 to initialize a local password}
+      GEO_LOCAL_AUTH_PASSWORD: ${GEO_LOCAL_AUTH_PASSWORD:-}
       GEO_LOCAL_AUTH_DISPLAY_NAME: 地脉智防管理员
     expose:
       - "8007"

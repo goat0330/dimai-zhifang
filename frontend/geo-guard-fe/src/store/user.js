@@ -17,8 +17,10 @@ import { getDisasterDetail } from '@/api/deal.js'
 import { useTaskStore } from '@/store/task.js'
 
 export const useUserStore = defineStore('user', () => {
-  const tokenLocalStorage = useLocalStorage(import.meta.env.VITE_APP_TOKEN_KEY, '')
-  const userLocalStorage = useLocalStorage(import.meta.env.VITE_APP_USER_INFO_KEY, {})
+  const tokenStorageKey = import.meta.env.VITE_APP_TOKEN_KEY || 'bwy-token'
+  const userInfoStorageKey = import.meta.env.VITE_APP_USER_INFO_KEY || 'bwy-user-info'
+  const tokenLocalStorage = useLocalStorage(tokenStorageKey, '')
+  const userLocalStorage = useLocalStorage(userInfoStorageKey, {})
   const token = ref(tokenLocalStorage.value || null)
 
   const userQuestion = ref(null)
@@ -127,7 +129,7 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = val || {}
     userLocalStorage.value = val || {}
     if (val) {
-      localStorage.setItem(import.meta.env.VITE_APP_USER_INFO_KEY, JSON.stringify(val))
+      localStorage.setItem(userInfoStorageKey, JSON.stringify(val))
     }
     const { permissions, routes } = val || {}
     buttonAuths.value = permissions || []
@@ -163,7 +165,7 @@ export const useUserStore = defineStore('user', () => {
   function removeUserInfo() {
     userInfo.value = {}
     userLocalStorage.value = {}
-    localStorage.removeItem(import.meta.env.VITE_APP_USER_INFO_KEY)
+    localStorage.removeItem(userInfoStorageKey)
     routeAuths.value = []
     menuRoutes.value = []
     buttonAuths.value = []
@@ -175,16 +177,16 @@ export const useUserStore = defineStore('user', () => {
     token.value = val
     tokenLocalStorage.value = val || ''
     if (val) {
-      localStorage.setItem(import.meta.env.VITE_APP_TOKEN_KEY, val)
+      localStorage.setItem(tokenStorageKey, val)
     } else {
-      localStorage.removeItem(import.meta.env.VITE_APP_TOKEN_KEY)
+      localStorage.removeItem(tokenStorageKey)
     }
   }
 
   function removeToken() {
     token.value = null
     tokenLocalStorage.value = ''
-    localStorage.removeItem(import.meta.env.VITE_APP_TOKEN_KEY)
+    localStorage.removeItem(tokenStorageKey)
   }
 
   function clearLoginState() {
