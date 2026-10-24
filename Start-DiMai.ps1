@@ -40,10 +40,7 @@ if ($LASTEXITCODE -ne 0) {
 $envPath = Join-Path $PSScriptRoot '.env'
 $credentialPath = Join-Path $PSScriptRoot '本机登录信息.txt'
 if (-not (Test-Path -LiteralPath $envPath)) {
-    $bytes = New-Object byte[] 24
-    $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    try { $generator.GetBytes($bytes) } finally { $generator.Dispose() }
-    $password = ([Convert]::ToBase64String($bytes) -replace '\+', '-' -replace '/', '_' -replace '=', '')
+    $password = 'dzzh@2025'
     $lines = @(
         '# Generated locally. Do not publish this file.',
         "GEO_LOCAL_AUTH_PASSWORD=$password",
@@ -51,14 +48,14 @@ if (-not (Test-Path -LiteralPath $envPath)) {
         'VITE_TDT_TOKEN='
     )
     [System.IO.File]::WriteAllLines($envPath, $lines, (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host '首次运行：已生成本地登录凭据。'
+    Write-Host '首次运行：已初始化本地登录配置。'
 }
 
 $content = Get-Content -LiteralPath $envPath -Encoding UTF8
 $passwordLine = $content | Where-Object { $_ -match '^GEO_LOCAL_AUTH_PASSWORD=\S+' } | Select-Object -Last 1
 if (-not $passwordLine) { Stop-WithError '.env 未设置 GEO_LOCAL_AUTH_PASSWORD，请补齐后重新运行。' }
 $password = ($passwordLine -split '=', 2)[1]
-$loginInfo = @("地脉智防（本机部署）", "访问地址：http://127.0.0.1:5174/", '账号：admin', "密码：$password", '请勿将本机登录信息上传至公开仓库。')
+$loginInfo = @("地脉智防（本机部署）", "访问地址：http://127.0.0.1:5174/", '账号：admin', "密码：$password", '本机 .env 文件不得上传至公开仓库。')
 [System.IO.File]::WriteAllLines($credentialPath, $loginInfo, (New-Object System.Text.UTF8Encoding($false)))
 
 & docker compose config --quiet
